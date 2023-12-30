@@ -4,11 +4,11 @@
 #include "StaticMeshAttributes.h"
 #include "Math/UnrealMathUtility.h"
 
-int32 XSPEnableMeshClean = 1;
+int32 XSPEnableMeshClean = 0;
 FAutoConsoleVariableRef CVarXSPEnableMeshClean(
     TEXT("xsp.EnableMeshClean"), 
     XSPEnableMeshClean,
-    TEXT("Enable/Disable mesh cleanup during read.(default:Enable)")
+    TEXT("Enable/Disable mesh cleanup during read.(default:Disable)")
 );
 
 void ComputeNormal(const TArray<FVector3f>& VertexList, TArray<FVector3f>& NormalList, int32 Offset)

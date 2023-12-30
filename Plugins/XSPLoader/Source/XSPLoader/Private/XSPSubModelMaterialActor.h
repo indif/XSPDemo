@@ -23,7 +23,7 @@ public:
 
     void RemoveNode(const TArray<int32>& NodeArray);
 
-    inline const TArray<struct FXSPNodeData*>& GetNodeDataArray() const { return Parent->GetNodeDataArray(); }
+    const TArray<struct FXSPNodeData*>& GetNodeDataArray() const;
 
     bool TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild);
 
@@ -32,8 +32,8 @@ private:
     void ProcessBatch(bool bAsyncBuild);
     bool ProcessRegister();
     void AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild);
-    void ReleaseComponent(UXSPBatchMeshComponent* Component);
-    void RegisterComponent(UXSPBatchMeshComponent* Component);
+    void ReleaseComponent(class UXSPBatchMeshComponent* Component);
+    void RegisterComponent(class UXSPBatchMeshComponent* Component);
 
 private:
     class AXSPSubModelActor* Parent;

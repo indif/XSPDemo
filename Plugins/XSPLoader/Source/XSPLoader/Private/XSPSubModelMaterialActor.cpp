@@ -52,6 +52,11 @@ void AXSPSubModelMaterialActor::RemoveNode(const TArray<int32>& InNodeArray)
     NodeToRemoveArray.Append(InNodeArray);
 }
 
+const TArray<struct FXSPNodeData*>& AXSPSubModelMaterialActor::GetNodeDataArray() const
+{
+    return Parent->GetNodeDataArray();
+}
+
 bool AXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
 {
     int64 BeginTicks = FDateTime::Now().GetTicks();

@@ -138,6 +138,11 @@ void AXSPSubModelActor::ClearRenderColor(const TArray<int32>& DbidArray)
     }
 }
 
+const TArray<struct FXSPNodeData*>& AXSPSubModelActor::GetNodeDataArray() const
+{
+    return Parent->GetNodeDataArray();
+}
+
 bool AXSPSubModelActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
 {
     bool bFinished = true;

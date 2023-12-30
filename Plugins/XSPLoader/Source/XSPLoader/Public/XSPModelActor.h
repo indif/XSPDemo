@@ -100,7 +100,7 @@ private:
 	UPROPERTY()
 	TMap<int32, class AXSPSubModelActor*> SubModelActorMap;
 
-	float MaxTickTime = 0.03f;
+	float MaxTickTime = 0.02f;
 
 	bool bAsyncBuildWhenLoading = true;
 

@@ -30,7 +30,7 @@ public:
 	void ClearRenderColor(int32 Dbid);
 	void ClearRenderColor(const TArray<int32>& DbidArray);
 
-	inline const TArray<struct FXSPNodeData*>& GetNodeDataArray() const { return Parent->GetNodeDataArray(); }
+	const TArray<struct FXSPNodeData*>& GetNodeDataArray() const;
 
 	bool TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild);
 
