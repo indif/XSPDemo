@@ -1,0 +1,28 @@
+#pragma once
+
+#include "CoreMinimal.h"
+
+
+DECLARE_STATS_GROUP(TEXT("XSPLoader"), STATGROUP_XSPLoader, STATCAT_Advanced);
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Node"), STAT_XSPLoader_NumNode, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num LevelOneNode"), STAT_XSPLoader_NumLevelOneNode, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num LeafNode"), STAT_XSPLoader_NumLeafNode, STATGROUP_XSPLoader);
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num SubActor"), STAT_XSPLoader_NumSubActor, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num SubMaterialActor"), STAT_XSPLoader_NumSubMaterialActor, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num BatchComponent"), STAT_XSPLoader_NumBatchComponent, STATGROUP_XSPLoader);
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num TotalVertices"), STAT_XSPLoader_NumTotalVertices, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num RegisteredVertices"), STAT_XSPLoader_NumRegisteredVertices, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num BuildingComponents"), STAT_XSPLoader_NumBuildingComponents, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num RegisteredComponents"), STAT_XSPLoader_NumRegisteredComponents, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num CreatedPhysicsState"), STAT_XSPLoader_NumCreatedPhysicsState, STATGROUP_XSPLoader);
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("MaxNumVerticesPerBatch"), STAT_XSPLoader_MaxNumVerticesPerBatch, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("MinNumVerticesPerBatch"), STAT_XSPLoader_MinNumVerticesPerBatch, STATGROUP_XSPLoader);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("MinNumVerticesUnbatch"), STAT_XSPLoader_MinNumVerticesUnbatch, STATGROUP_XSPLoader);
+
+DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("ReadFileTime"), STAT_XSPLoader_ReadFileTime, STATGROUP_XSPLoader);
+DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("BuildStaticMeshTime"), STAT_XSPLoader_BuildStaticMeshTime, STATGROUP_XSPLoader);
+DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("RegisterComponentTime"), STAT_XSPLoader_RegisterComponentTime, STATGROUP_XSPLoader);
