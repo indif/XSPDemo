@@ -23,7 +23,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Load();
 
+	UFUNCTION(BlueprintCallable)
+	void Unload();
+
 private:
-	UPROPERTY()
+	//UPROPERTY()
 	AActor* CombinedMeshActor = nullptr;
 };

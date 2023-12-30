@@ -4,11 +4,11 @@
 #include "StaticMeshAttributes.h"
 #include "Math/UnrealMathUtility.h"
 
-int32 XSPEnableMeshClean = 0;
+bool bXSPEnableMeshClean = false;
 FAutoConsoleVariableRef CVarXSPEnableMeshClean(
     TEXT("xsp.EnableMeshClean"), 
-    XSPEnableMeshClean,
-    TEXT("Enable/Disable mesh cleanup during read.(default:Disable)")
+    bXSPEnableMeshClean,
+    TEXT("是否剔除网格数据中的无效三角形，缺省为否")
 );
 
 void ComputeNormal(const TArray<FVector3f>& VertexList, TArray<FVector3f>& NormalList, int32 Offset)
@@ -64,7 +64,7 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
 
     int32 Offset = VertexList.Num();
 
-    if (XSPEnableMeshClean > 0)
+    if (bXSPEnableMeshClean)
     {
         int32 NumTriangles = BufferLength / 9;
         for (size_t j = 0; j < NumTriangles; j++)
@@ -463,57 +463,6 @@ void BuildStaticMesh(UStaticMesh* StaticMesh, const TArray<FVector3f>& VertexLis
     MeshDescPtrs.Emplace(&MeshDesc);
 
     StaticMesh->BuildFromMeshDescriptions(MeshDescPtrs, BuildParams);
-}
-
-void BuildStaticMesh1(UStaticMesh* StaticMesh, const TArray<FVector3f>& PositionList, const TArray<FVector3f>* NormalList)
-{
-    StaticMesh->GetStaticMaterials().Add(FStaticMaterial());
-    StaticMesh->SetFlags(RF_Transient | RF_DuplicateTransient | RF_TextExportTransient);
-    StaticMesh->NeverStream = true;
-
-    StaticMesh->SetRenderData(MakeUnique<FStaticMeshRenderData>());
-    FStaticMeshRenderData* StaticMeshRenderData = StaticMesh->GetRenderData();
-    StaticMeshRenderData->AllocateLODResources(1);
-    StaticMeshRenderData->ScreenSize[0].Default = 1.0f;
-
-    int32 NumVertices = PositionList.Num();
-    FStaticMeshLODResources& StaticMeshLODResources = StaticMeshRenderData->LODResources[0];
-
-    TArray<FStaticMeshBuildVertex> StaticMeshBuildVertices;
-    StaticMeshBuildVertices.SetNum(NumVertices);
-    TArray<uint32> IndexArray;
-    IndexArray.SetNum(NumVertices);
-    FBox3f RenderDataBox;
-    RenderDataBox.Init();
-    for (int32 i = 0; i < NumVertices; i++)
-    {
-        RenderDataBox += PositionList[i];
-        StaticMeshBuildVertices[i].Position.Set(PositionList[i].X, PositionList[i].Y, PositionList[i].Z);
-        if (nullptr != NormalList)
-            StaticMeshBuildVertices[i].TangentZ.Set((*NormalList)[i].X, (*NormalList)[i].Y, (*NormalList)[i].Z);
-        IndexArray[i] = i;
-    }
-    StaticMeshLODResources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices);
-    StaticMeshLODResources.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 1);
-    StaticMeshLODResources.IndexBuffer.SetIndices(IndexArray, EIndexBufferStride::Type::Force16Bit);
-
-    FStaticMeshSection& Section = StaticMeshLODResources.Sections.AddDefaulted_GetRef();
-    Section.bEnableCollision = true;
-    Section.NumTriangles = NumVertices / 3;
-    Section.FirstIndex = 0;
-    Section.MinVertexIndex = 0;
-    Section.MaxVertexIndex = NumVertices - 1;
-    Section.MaterialIndex = 0;
-    Section.bForceOpaque = false;
-
-    StaticMeshLODResources.bHasDepthOnlyIndices = false;
-    StaticMeshLODResources.bHasReversedIndices = false;
-    StaticMeshLODResources.bHasReversedDepthOnlyIndices = false;
-
-    StaticMeshRenderData->Bounds = FBoxSphereBounds(FBox(RenderDataBox));
-
-    StaticMesh->InitResources();
-    StaticMesh->CalculateExtendedBounds();
 }
 
 void BuildStaticMesh(UStaticMesh* StaticMesh, const Body_info& Node)

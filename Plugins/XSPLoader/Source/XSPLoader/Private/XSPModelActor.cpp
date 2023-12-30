@@ -11,6 +11,21 @@
 #include "XSPStat.h"
 
 
+float XSPMaxTickTimeWhenInitLoading = 0.3f;
+FAutoConsoleVariableRef CVarXSPMaxTickTimeWhenInitLoading(
+    TEXT("xsp.MaxTickTimeWhenInitLoading"),
+    XSPMaxTickTimeWhenInitLoading,
+    TEXT("初始化加载时每帧最多允许的Tick时间，缺省为0.3秒")
+);
+
+float XSPMaxTickTime = 0.03f;
+FAutoConsoleVariableRef CVarXSPMaxTickTime(
+    TEXT("xsp.MaxTickTime"),
+    XSPMaxTickTime,
+    TEXT("每帧最多允许的Tick时间，缺省为0.03秒")
+);
+
+
 extern bool bXSPAutoComputeBatchParams;
 extern int32 XSPMaxNumBatches;
 extern int32 XSPMaxNumVerticesPerBatch;
@@ -42,7 +57,7 @@ bool AXSPModelActor::Load(const TArray<FString>& FilePathNameArray, bool bAsyncB
 
     SourceMaterialOpaque = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, L"/XSPLoader/M_MainOpaque"));
     SourceMaterialTranslucent = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, L"/XSPLoader/M_MainTranslucent"));
-    bAsyncBuildWhenLoading = bAsyncBuild;
+    bAsyncBuildWhenInitLoading = bAsyncBuild;
 
     return LoadToDynamicCombinedMesh(FilePathNameArray);
 }
@@ -212,11 +227,6 @@ void AXSPModelActor::ClearRenderColorArray(const TArray<int32>& DbidArray)
     }
 }
 
-void AXSPModelActor::SetMaxTickTime(float Seconds)
-{
-    MaxTickTime = Seconds;
-}
-
 AXSPModelActor::FOnLoadFinishDelegate& AXSPModelActor::GetOnLoadFinishDelegate()
 {
     return OnLoadFinishDelegate;
@@ -235,7 +245,7 @@ void AXSPModelActor::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
     if (EState::Empty != State && EState::Finished != State)
-        TickDynamicCombine(MaxTickTime);
+        TickDynamicCombine(EState::Updating == State ? XSPMaxTickTime : XSPMaxTickTimeWhenInitLoading);
 }
 
 UMaterialInstanceDynamic* AXSPModelActor::CreateMaterialInstanceDynamic(const FLinearColor& BaseColor, float Roughness, const FLinearColor& EmissiveColor)
@@ -297,7 +307,7 @@ void AXSPModelActor::TickDynamicCombine(float AvailableSeconds)
     if (EState::InitLoading == State || EState::Updating == State)
     {
         //异步构建只用于初始加载阶段（动态更新阶段异步构建导致的视觉效果不好）
-        bool bAsyncBuild = bAsyncBuildWhenLoading && EState::InitLoading == State;
+        bool bAsyncBuild = bAsyncBuildWhenInitLoading && EState::InitLoading == State;
         for (auto& Pair : SubModelActorMap)
         {
             if (AvailableSeconds < 0)

@@ -17,8 +17,6 @@ void AppendNodeMesh(const Body_info& Node, TArray<FVector3f>& VertexList, TArray
 
 void BuildStaticMesh(UStaticMesh* StaticMesh, const TArray<FVector3f>& VertexList, const TArray<FVector3f>* NormalList);
 
-void BuildStaticMesh1(UStaticMesh* StaticMesh, const TArray<FVector3f>& PositionList, const TArray<FVector3f>* NormalList);
-
 void BuildStaticMesh(UStaticMesh* StaticMesh, const Body_info& Node);
 
 bool IsValidMaterial(float material[4]);

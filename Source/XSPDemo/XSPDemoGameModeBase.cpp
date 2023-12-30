@@ -77,3 +77,13 @@ void AXSPDemoGameModeBase::Load()
         }
     }
 }
+
+void AXSPDemoGameModeBase::Unload()
+{
+    if (CombinedMeshActor)
+    {
+        GetWorld()->DestroyActor(CombinedMeshActor);
+        CombinedMeshActor = nullptr;
+        GEngine->ForceGarbageCollection(true);
+    }
+}

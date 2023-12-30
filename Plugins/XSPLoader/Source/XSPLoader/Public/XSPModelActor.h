@@ -57,10 +57,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ClearRenderColorArray(const TArray<int32>& DbidArray);
 
-	//设置允许的最大单次Tick时间
-	UFUNCTION(BlueprintCallable)
-	void SetMaxTickTime(float Seconds);
-
 public:
 	//加载完成事件(参数: 0-初始化加载,1-动态更新)
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoadFinishDelegate, int32);
@@ -100,9 +96,7 @@ private:
 	UPROPERTY()
 	TMap<int32, class AXSPSubModelActor*> SubModelActorMap;
 
-	float MaxTickTime = 0.02f;
-
-	bool bAsyncBuildWhenLoading = true;
+	bool bAsyncBuildWhenInitLoading = true;
 
 	TArray<TSharedPtr<class FXSPFileReader>> FileReaderArray;
 
