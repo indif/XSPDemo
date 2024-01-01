@@ -13,17 +13,19 @@ FAutoConsoleVariableRef CVarXSPEnableMeshClean(
 
 void EncodeNormal(const FVector3f& InNormal, FXSPNormalVector& OutNormal)
 {
-    FLinearColor LinearColor(InNormal);
-    FColor Color = LinearColor.ToRGBE();
-    OutNormal.X = Color.R;
-    OutNormal.Y = Color.G;
-    OutNormal.Z = Color.B;
+    //FLinearColor LinearColor(InNormal);
+    //FColor Color = LinearColor.ToRGBE();
+    //OutNormal.X = Color.R;
+    //OutNormal.Y = Color.G;
+    //OutNormal.Z = Color.B;
+    OutNormal = InNormal;
 }
 
 void DecodeNormal(const FXSPNormalVector& InNormal, FVector3f& OutNormal)
 {
-    FLinearColor LinearColor = FLinearColor::FromSRGBColor(FColor(InNormal.X, InNormal.Y, InNormal.Z));
-    OutNormal.Set(LinearColor.R, LinearColor.G, LinearColor.B);
+    //FLinearColor LinearColor = FLinearColor::FromSRGBColor(FColor(InNormal.X, InNormal.Y, InNormal.Z));
+    //OutNormal.Set(LinearColor.R, LinearColor.G, LinearColor.B);
+    OutNormal = InNormal;
 }
 
 void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FXSPNormalVector>& NormalList, int32 Offset)

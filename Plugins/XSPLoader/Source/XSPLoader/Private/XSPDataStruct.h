@@ -50,18 +50,13 @@ struct FXSPPrimitiveData
 	}
 };
 
-//using FXSPNormalVector = /*UE::Math::TVector<float>*/UE::Math::TVector<uint8>;
-struct FXSPNormalVector
-{
-	uint8 X;
-	uint8 Y;
-	uint8 Z;
-	//void Set(uint8 InX, uint8 InY, uint8 InZ) {
-	//	X = InX;
-	//	Y = InY;
-	//	Z = InZ;
-	//}
-};
+using FXSPNormalVector = UE::Math::TVector<float>;
+//struct FXSPNormalVector
+//{
+//	uint8 X;
+//	uint8 Y;
+//	uint8 Z;
+//};
 
 //节点数据
 struct FXSPNodeData
@@ -102,19 +97,6 @@ struct FXSPNodeData
 		, MeshBoundingBox(ForceInit)
 	{
 	}
-};
-
-struct Body_info
-{
-	int dbid;  //结构体的索引就是dbid 从0开始
-	int parentdbid;      //parent db id
-	short level;    //node 所在的节点层级 从0开始
-	std::string name;   //fragment/node name
-	std::string property;   //节点属性
-	float material[4];  //材质
-	float box[6];      //min max
-	std::vector<float> vertices;
-	TArray<Body_info> fragment;
 };
 
 struct Header_info
