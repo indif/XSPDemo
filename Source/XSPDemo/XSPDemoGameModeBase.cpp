@@ -31,7 +31,6 @@ void AXSPDemoGameModeBase::BeginPlay()
 
 void AXSPDemoGameModeBase::Logout(AController* Exiting)
 {
-    FModuleManager::GetModuleChecked<FXSPLoaderModule>("XSPLoader").Get().Reset();
 }
 
 void AXSPDemoGameModeBase::Tick(float deltaSeconds)

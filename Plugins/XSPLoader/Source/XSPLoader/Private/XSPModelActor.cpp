@@ -3,7 +3,6 @@
 
 #include "XSPModelActor.h"
 #include "XSPFileUtils.h"
-#include "CombinedMeshBuilder.h"
 #include "MeshUtils.h"
 #include "XSPFileReader.h"
 #include "XSPSubModelActor.h"
@@ -227,6 +226,17 @@ void AXSPModelActor::ClearRenderColorArray(const TArray<int32>& DbidArray)
     }
 }
 
+void AXSPModelActor::ClearData()
+{
+    for (FXSPNodeData* NodeData : NodeDataArray)
+    {
+        NodeData->MeshNormalArray.Empty();
+        NodeData->MeshPositionArray.Empty();
+        //delete NodeData;
+    }
+    NodeDataArray.Empty();
+}
+
 AXSPModelActor::FOnLoadFinishDelegate& AXSPModelActor::GetOnLoadFinishDelegate()
 {
     return OnLoadFinishDelegate;
@@ -358,6 +368,7 @@ bool AXSPModelActor::FinishLoadNodeData()
         }
         FileReaderArray.Empty();
 
+        SET_DWORD_STAT(STAT_XSPLoader_NumTotalVertices, NumVerticesTotal);
         SET_DWORD_STAT(STAT_XSPLoader_NumNode, NodeDataArray.Num());
         SET_DWORD_STAT(STAT_XSPLoader_NumLevelOneNode, LevelOneNodeIdArray.Num());
         SET_DWORD_STAT(STAT_XSPLoader_NumLeafNode, LeafNodeIdArray.Num());
@@ -381,11 +392,7 @@ bool AXSPModelActor::FinishLoadNodeData()
 
 void AXSPModelActor::ComputeBatchParams()
 {
-    SET_DWORD_STAT(STAT_XSPLoader_NumTotalVertices, NumVerticesTotal);
-    if (NumVerticesTotal <= 10000)
-        return;
-
-    XSPMaxNumVerticesPerBatch = NumVerticesTotal / XSPMaxNumBatches;
+    XSPMaxNumVerticesPerBatch = FMath::Max(FMath::Min(NumVerticesTotal / XSPMaxNumBatches, (int32)MAX_uint16+1), 300);
     SET_DWORD_STAT(STAT_XSPLoader_MaxNumVerticesPerBatch, XSPMaxNumVerticesPerBatch);
 
     XSPMinNumVerticesPerBatch = XSPMaxNumVerticesPerBatch / 3;

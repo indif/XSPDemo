@@ -2,11 +2,32 @@
 #include "XSPSubModelMaterialActor.h"
 #include "XSPDataStruct.h"
 #include "XSPStat.h"
+#include "MeshUtils.h"
 
 #include "MeshDescription.h"
 #include "MeshDescriptionBuilder.h"
 #include "StaticMeshAttributes.h"
 
+bool bXSPBuildStaticMesh = true;
+FAutoConsoleVariableRef CVarXSPBuildStaticMesh(
+    TEXT("xsp.BuildStaticMesh"),
+    bXSPBuildStaticMesh,
+    TEXT("是否生成StaticMesh，缺省为true")
+);
+
+bool bXSPBuildPhysicsData = true;
+FAutoConsoleVariableRef CVarXSPBuildPhysicsData(
+    TEXT("xsp.BuildPhysicsData"),
+    bXSPBuildPhysicsData,
+    TEXT("是否生成碰撞体，缺省为true")
+);
+
+bool bXSPDiscardCPUDataAfterUpload = true;
+FAutoConsoleVariableRef CVarXSPDiscardCPUDataAfterUpload(
+    TEXT("xsp.DiscardCPUDataAfterUpload"),
+    bXSPDiscardCPUDataAfterUpload,
+    TEXT("是否在上传资源到GPU后释放其CPU数据，缺省为true")
+);
 
 UXSPBatchMeshComponent::UXSPBatchMeshComponent()
 {
@@ -26,20 +47,23 @@ void UXSPBatchMeshComponent::Init(AXSPSubModelMaterialActor* InParent, const TAr
 
     bHasNoStreamableTextures = true;
 
-    BuildingStaticMesh = NewObject<UStaticMesh>(this);
-
-    if (bAsyncBuild)
+    if (bXSPBuildStaticMesh)
     {
-        AsyncBuildTask = new FAsyncTask<FXSPBuildStaticMeshTask>(this);
-        AsyncBuildTask->StartBackgroundTask();
-        INC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
-    }
-    else
-    {
-        BuildStaticMesh_AnyThread();
+        BuildingStaticMesh = NewObject<UStaticMesh>(this);
 
-        SetStaticMesh(BuildingStaticMesh);
-        BuildingStaticMesh = nullptr;
+        if (bAsyncBuild)
+        {
+            AsyncBuildTask = new FAsyncTask<FXSPBuildStaticMeshTask>(this);
+            AsyncBuildTask->StartBackgroundTask();
+            INC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
+        }
+        else
+        {
+            BuildStaticMesh_AnyThread();
+
+            SetStaticMesh(BuildingStaticMesh);
+            BuildingStaticMesh = nullptr;
+        }
     }
 
     INC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
@@ -67,7 +91,7 @@ int32 UXSPBatchMeshComponent::GetNode(int32 FaceIndex)
 
 bool UXSPBatchMeshComponent::TryFinishBuildMesh()
 {
-    if (nullptr != AsyncBuildTask && AsyncBuildTask->IsDone())
+    if (bXSPBuildStaticMesh && nullptr != AsyncBuildTask && AsyncBuildTask->IsDone())
     {
         SetStaticMesh(BuildingStaticMesh);
         BuildingStaticMesh = nullptr;
@@ -85,7 +109,7 @@ bool UXSPBatchMeshComponent::TryFinishBuildMesh()
 
 UBodySetup* UXSPBatchMeshComponent::GetBodySetup()
 {
-    if (!MeshBodySetup && !BuildingBodySetup)
+    if (bXSPBuildPhysicsData && !MeshBodySetup && !BuildingBodySetup)
     {
         BuildPhysicsData(true);
     }
@@ -139,7 +163,7 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
 
     BuildingStaticMesh->SetFlags(RF_Transient | RF_DuplicateTransient | RF_TextExportTransient);
     BuildingStaticMesh->NeverStream = true;
-    BuildingStaticMesh->bAllowCPUAccess = false;
+    BuildingStaticMesh->bAllowCPUAccess = !bXSPDiscardCPUDataAfterUpload;
     BuildingStaticMesh->GetStaticMaterials().Add(FStaticMaterial());
 
     TUniquePtr<FStaticMeshRenderData> StaticMeshRenderData = MakeUnique<FStaticMeshRenderData>();
@@ -161,23 +185,23 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
         for (int32 i = 0; i < NumVertices; i++)
         {
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
-            StaticMeshBuildVertices[Index].Position = FVector3f(NodeDataArray[Dbid]->MeshPositionArray[i]);
-            StaticMeshBuildVertices[Index].TangentZ = FVector3f(NodeDataArray[Dbid]->MeshNormalArray[i]);
+            StaticMeshBuildVertices[Index].Position = NodeDataArray[Dbid]->MeshPositionArray[i];
+            DecodeNormal(NodeDataArray[Dbid]->MeshNormalArray[i], StaticMeshBuildVertices[Index].TangentZ);
             StaticMeshBuildVertices[Index].Color = FColor::White;
             StaticMeshBuildVertices[Index].UVs[0].Set(0, 0);
             IndexArray[Index] = Index;
             Index++;
         }
     }
-    StaticMeshLODResources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices);
-    StaticMeshLODResources.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 1);
-    StaticMeshLODResources.IndexBuffer.SetIndices(IndexArray, EIndexBufferStride::Type::AutoDetect);
+    StaticMeshLODResources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices, !bXSPDiscardCPUDataAfterUpload);
+    StaticMeshLODResources.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 1, !bXSPDiscardCPUDataAfterUpload);
+    StaticMeshLODResources.IndexBuffer.SetIndices(IndexArray, (IndexArray.Num() <= (int32)MAX_uint16 + 1) ? EIndexBufferStride::Type::Force16Bit : EIndexBufferStride::Type::Force32Bit);
     StaticMeshLODResources.bHasDepthOnlyIndices = false;
     StaticMeshLODResources.bHasReversedIndices = false;
     StaticMeshLODResources.bHasReversedDepthOnlyIndices = false;
 
     FStaticMeshSection& Section = StaticMeshLODResources.Sections.AddDefaulted_GetRef();
-    Section.bEnableCollision = true;
+    Section.bEnableCollision = false;
     Section.NumTriangles = NumVerticesTotal / 3;
     Section.FirstIndex = 0;
     Section.MinVertexIndex = 0;

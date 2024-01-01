@@ -4,8 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
-#include "Containers/Ticker.h"
-#include "IXSPLoader.h"
 
 class FXSPLoaderModule : public IModuleInterface
 {
@@ -20,10 +18,4 @@ public:
 
 	//设置动态合并打包参数：每个包最大顶点数、每个包最小顶点数、不参与合包的最小顶点数
 	XSPLOADER_API void SetBatchParams(int32 XSPMaxNumVerticesPerBatch, int32 XSPMinNumVerticesPerBatch, int32 XSPMinNumVerticesUnbatch);
-
-	XSPLOADER_API IXSPLoader& Get() const;
-
-private:
-	FTSTicker::FDelegateHandle TickerHandle;
-	IXSPLoader* XSPLoader = nullptr;
 };
