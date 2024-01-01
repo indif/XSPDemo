@@ -226,17 +226,6 @@ void AXSPModelActor::ClearRenderColorArray(const TArray<int32>& DbidArray)
     }
 }
 
-void AXSPModelActor::ClearData()
-{
-    for (FXSPNodeData* NodeData : NodeDataArray)
-    {
-        NodeData->MeshNormalArray.Empty();
-        NodeData->MeshPositionArray.Empty();
-        //delete NodeData;
-    }
-    NodeDataArray.Empty();
-}
-
 AXSPModelActor::FOnLoadFinishDelegate& AXSPModelActor::GetOnLoadFinishDelegate()
 {
     return OnLoadFinishDelegate;

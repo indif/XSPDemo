@@ -57,9 +57,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ClearRenderColorArray(const TArray<int32>& DbidArray);
 
-	UFUNCTION(BlueprintCallable)
-	void ClearData();
-
 public:
 	//加载完成事件(参数: 0-初始化加载,1-动态更新)
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoadFinishDelegate, int32);
