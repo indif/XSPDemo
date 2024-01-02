@@ -11,24 +11,7 @@ FAutoConsoleVariableRef CVarXSPEnableMeshClean(
     TEXT("是否剔除网格数据中的无效三角形，缺省为否")
 );
 
-void EncodeNormal(const FVector3f& InNormal, FXSPNormalVector& OutNormal)
-{
-    //FLinearColor LinearColor(InNormal);
-    //FColor Color = LinearColor.ToRGBE();
-    //OutNormal.X = Color.R;
-    //OutNormal.Y = Color.G;
-    //OutNormal.Z = Color.B;
-    OutNormal = InNormal;
-}
-
-void DecodeNormal(const FXSPNormalVector& InNormal, FVector3f& OutNormal)
-{
-    //FLinearColor LinearColor = FLinearColor::FromSRGBColor(FColor(InNormal.X, InNormal.Y, InNormal.Z));
-    //OutNormal.Set(LinearColor.R, LinearColor.G, LinearColor.B);
-    OutNormal = InNormal;
-}
-
-void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FXSPNormalVector>& NormalList, int32 Offset)
+void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, int32 Offset)
 {
     int32 NumVertices = PositionList.Num()-Offset;
 
@@ -45,14 +28,14 @@ void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FXSPNormalVecto
         const FVector3f Edge21 = P[1] - P[2];
         const FVector3f Edge20 = P[0] - P[2];
         FVector3f TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
-        FXSPNormalVector EncodedNormal;
-        EncodeNormal(TriNormal, EncodedNormal);
-        NormalList[Offset + TriIdx * 3 + 0] = NormalList[Offset + TriIdx * 3 + 1] = NormalList[Offset + TriIdx * 3 + 2] = EncodedNormal;
+        NormalList[Offset + TriIdx * 3 + 0] = TriNormal;
+        NormalList[Offset + TriIdx * 3 + 1] = TriNormal;
+        NormalList[Offset + TriIdx * 3 + 2] = TriNormal;
     }
 }
 
 //网格体
-void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 BufferLength, TArray<FVector3f>& PositionList, TArray<FXSPNormalVector>& NormalList, FBox3f& InOutBoundingBox)
+void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == MeshVertexBuffer || BufferLength < 9 || BufferLength % 9 != 0)
     {
@@ -78,24 +61,18 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
             PositionList.Add(C);
             if (nullptr != MeshNormalBuffer)
             {
-                FXSPNormalVector EncodedNormal;
-                EncodeNormal(FVector3f(MeshNormalBuffer[j * 9 + 1], MeshNormalBuffer[j * 9 + 0], MeshNormalBuffer[j * 9 + 2]), EncodedNormal);
-                NormalList.Add(EncodedNormal);
-                EncodeNormal(FVector3f(MeshNormalBuffer[j * 9 + 4], MeshNormalBuffer[j * 9 + 3], MeshNormalBuffer[j * 9 + 5]), EncodedNormal);
-                NormalList.Add(EncodedNormal);
-                EncodeNormal(FVector3f(MeshNormalBuffer[j * 9 + 7], MeshNormalBuffer[j * 9 + 6], MeshNormalBuffer[j * 9 + 8]), EncodedNormal);
-                NormalList.Add(EncodedNormal);
+                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 1], MeshNormalBuffer[j * 9 + 0], MeshNormalBuffer[j * 9 + 2]));
+                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 4], MeshNormalBuffer[j * 9 + 3], MeshNormalBuffer[j * 9 + 5]));
+                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 7], MeshNormalBuffer[j * 9 + 6], MeshNormalBuffer[j * 9 + 8]));
             }
             else
             {
                 const FVector3f Edge21 = B - C;
                 const FVector3f Edge20 = A - C;
                 FVector3f TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
-                FXSPNormalVector EncodedNormal;
-                EncodeNormal(TriNormal, EncodedNormal);
-                NormalList.Add(EncodedNormal);
-                NormalList.Add(EncodedNormal);
-                NormalList.Add(EncodedNormal);
+                NormalList.Add(TriNormal);
+                NormalList.Add(TriNormal);
+                NormalList.Add(TriNormal);
             }
         }
     }
@@ -114,7 +91,7 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
         {
             for (size_t j = 0; j < NumMeshVertices; j++)
             {
-                EncodeNormal(FVector3f(MeshNormalBuffer[j * 3 + 1], MeshNormalBuffer[j * 3 + 0], MeshNormalBuffer[j * 3 + 2]), NormalList[Offset + j]);
+                NormalList[Offset + j] = FVector3f(MeshNormalBuffer[j * 3 + 1], MeshNormalBuffer[j * 3 + 0], MeshNormalBuffer[j * 3 + 2]);
             }
         }
         else
@@ -125,7 +102,7 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
 }
 
 //椭圆形
-void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FXSPNormalVector>& NormalList, FBox3f& InOutBoundingBox)
+void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == PrimitiveParamsBuffer || BufferLength < 10)
     {
@@ -154,25 +131,23 @@ void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArr
 
     //椭圆面
     TArray<FVector3f> EllipticalMeshVertices;
-    TArray<FXSPNormalVector> EllipticalMeshNormals;
+    TArray<FPackedNormal> EllipticalMeshNormals;
     EllipticalMeshVertices.SetNumUninitialized(NumSegments * 3);
     EllipticalMeshNormals.SetNumUninitialized(NumSegments * 3);
-    FXSPNormalVector EncodedNormal;
-    EncodeNormal(Normal, EncodedNormal);
     int32 Index = 0;
     for (int32 i = 0; i < NumSegments; i++)
     {
-        EllipticalMeshNormals[Index] = EncodedNormal;
+        EllipticalMeshNormals[Index] = Normal;
         EllipticalMeshVertices[Index] = Origin;
         InOutBoundingBox += EllipticalMeshVertices[Index];
         Index++;
 
-        EllipticalMeshNormals[Index] = EncodedNormal;
+        EllipticalMeshNormals[Index] = Normal;
         EllipticalMeshVertices[Index] = Origin + RadialVectors[i + 1];
         InOutBoundingBox += EllipticalMeshVertices[Index];
         Index++;
         
-        EllipticalMeshNormals[Index] = EncodedNormal;
+        EllipticalMeshNormals[Index] = Normal;
         EllipticalMeshVertices[Index] = Origin + RadialVectors[i];
         InOutBoundingBox += EllipticalMeshVertices[Index];
         Index++;
@@ -183,7 +158,7 @@ void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArr
 }
 
 //圆柱体
-void AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FXSPNormalVector>& NormalList, FBox3f& InOutBoundingBox)
+void AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == PrimitiveParamsBuffer || BufferLength < 13)
     {
@@ -223,43 +198,43 @@ void AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray
     }
 
     TArray<FVector3f> CylinderMeshVertices;
-    TArray<FXSPNormalVector> CylinderMeshNormals;
+    TArray<FPackedNormal> CylinderMeshNormals;
     CylinderMeshVertices.SetNumUninitialized(NumSegments * 6);
     CylinderMeshNormals.SetNumUninitialized(NumSegments * 6);
-    FXSPNormalVector EncodedNormal, EncodedNormal1;
+    FVector3f Normal, Normal1;
     int32 Index = 0;
     //侧面
     for (int32 i = 0; i < NumSegments; i++)
     {
-        EncodeNormal(RadialVectors[i].GetSafeNormal(), EncodedNormal);
-        EncodeNormal(RadialVectors[i+1].GetSafeNormal(), EncodedNormal1);
+        Normal = RadialVectors[i].GetSafeNormal();
+        Normal1 = RadialVectors[i+1].GetSafeNormal();
 
-        CylinderMeshNormals[Index] = EncodedNormal;
+        CylinderMeshNormals[Index] = Normal;
         CylinderMeshVertices[Index] = BottomCenter + RadialVectors[i];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;
 
-        CylinderMeshNormals[Index] = EncodedNormal;
+        CylinderMeshNormals[Index] = Normal;
         CylinderMeshVertices[Index] = TopCenter + RadialVectors[i];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;
 
-        CylinderMeshNormals[Index] = EncodedNormal1;
+        CylinderMeshNormals[Index] = Normal1;
         CylinderMeshVertices[Index] = BottomCenter + RadialVectors[i + 1];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;
 
-        CylinderMeshNormals[Index] = EncodedNormal1;
+        CylinderMeshNormals[Index] = Normal1;
         CylinderMeshVertices[Index] = BottomCenter + RadialVectors[i + 1];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;
 
-        CylinderMeshNormals[Index] = EncodedNormal;
+        CylinderMeshNormals[Index] = Normal;
         CylinderMeshVertices[Index] = TopCenter + RadialVectors[i];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;
 
-        CylinderMeshNormals[Index] = EncodedNormal1;
+        CylinderMeshNormals[Index] = Normal1;
         CylinderMeshVertices[Index] = TopCenter + RadialVectors[i + 1];
         InOutBoundingBox += CylinderMeshVertices[Index];
         Index++;

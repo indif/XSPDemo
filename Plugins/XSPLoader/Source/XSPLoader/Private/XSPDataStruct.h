@@ -50,14 +50,6 @@ struct FXSPPrimitiveData
 	}
 };
 
-using FXSPNormalVector = UE::Math::TVector<float>;
-//struct FXSPNormalVector
-//{
-//	uint8 X;
-//	uint8 Y;
-//	uint8 Z;
-//};
-
 //节点数据
 struct FXSPNodeData
 {
@@ -84,7 +76,7 @@ struct FXSPNodeData
 
 	//生成的网格体数据(由节点包含的所有原始几何体合并的)
 	TArray<FVector3f> MeshPositionArray;
-	TArray<FXSPNormalVector> MeshNormalArray;
+	TArray<FPackedNormal> MeshNormalArray;
 
 	//包围盒
 	FBox3f MeshBoundingBox;

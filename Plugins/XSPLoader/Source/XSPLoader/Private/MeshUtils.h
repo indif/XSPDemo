@@ -6,7 +6,5 @@
 #include "XSPFileUtils.h"
 
 
-void EncodeNormal(const FVector3f& InNormal, FXSPNormalVector& OutNormal);
-void DecodeNormal(const FXSPNormalVector& InNormal, FVector3f& OutNormal);
 void InheritMaterial(FXSPNodeData& Node, FXSPNodeData& ParentNode);
 void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData);
