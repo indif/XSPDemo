@@ -24,6 +24,58 @@ void ReadHeaderInfo(std::fstream& file, int nsize, TArray<Header_info>& header_l
     }
 }
 
+void ReadBodyInfo(std::fstream& file, const Header_info& header, bool is_fragment, Body_info& body)
+{
+    body.parentdbid = header.parentdbid;
+    body.level = header.level;
+
+    //node name
+    file.seekg(header.startname, std::ios::beg);
+    char* buffer = new char[header.namelength + 1];
+    file.read(buffer, header.namelength);
+    buffer[header.namelength] = '\0';
+    body.name = buffer;
+    delete[] buffer;
+
+    //node property
+    file.seekg(header.startproperty, std::ios::beg);
+    buffer = new char[header.propertylength + 1];
+    file.read(buffer, header.propertylength);
+    buffer[header.propertylength] = '\0';
+    body.property = buffer;
+    delete[] buffer;
+
+    file.seekg(header.startmaterial, std::ios::beg);
+    file.read((char*)&body.material, sizeof(body.material));
+
+    if (!is_fragment) {
+        file.seekg(header.startbox, std::ios::beg);
+        file.read((char*)&body.box, sizeof(body.box));
+    }
+
+    //fragment vertices
+    file.seekg(header.startvertices, std::ios::beg);
+
+    if (is_fragment) {
+        for (int k = 0; k < header.verticeslength / 4; k++) {
+            float f;
+            file.read((char*)&f, sizeof(f));
+            body.vertices.push_back(f);
+        }
+    }
+    else {
+        if (header.verticeslength > 0) {
+            TArray<Header_info> fragment_headerList;
+            ReadHeaderInfo(file, header.verticeslength / 50, fragment_headerList);
+            int num_fragments = fragment_headerList.Num();
+            body.fragment.SetNum(num_fragments);
+            for (int k = 0; k < num_fragments; k++) {
+                ReadBodyInfo(file, fragment_headerList[k], true, body.fragment[k]);
+            }
+        }
+    }
+}
+
 void ReadNodeData(std::fstream& file, const Header_info& header, FXSPNodeData& NodeData)
 {
     NodeData.Level = header.level;

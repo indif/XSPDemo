@@ -107,3 +107,16 @@ struct Header_info
 	int verticeslength;  //vertices头文件大小
 	int offset;
 };
+
+struct Body_info
+{
+	int dbid;  //结构体的索引就是dbid 从0开始
+	int parentdbid;      //parent db id
+	short level;    //node 所在的节点层级 从0开始
+	std::string name;   //fragment/node name
+	std::string property;   //节点属性
+	float material[4];  //材质
+	float box[6];      //min max
+	std::vector<float> vertices;
+	TArray<Body_info> fragment;
+};
