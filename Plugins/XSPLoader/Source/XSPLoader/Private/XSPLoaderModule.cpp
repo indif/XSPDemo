@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "XSPLoaderModule.h"
 #include "XSPLoader.h"
+#include "Interfaces/IPluginManager.h"
 
 #define LOCTEXT_NAMESPACE "FXSPLoaderModule"
 
@@ -20,6 +21,9 @@ void FXSPLoaderModule::StartupModule()
 			return true;
 		});
 	XSPLoader = TempXSPLoader;
+
+	const FString ShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("XSPLoader"))->GetBaseDir(), TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping("/Plugin/XSPLoader", ShaderDir);
 }
 
 void FXSPLoaderModule::ShutdownModule()

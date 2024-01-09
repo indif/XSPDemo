@@ -32,8 +32,8 @@ private:
     void ProcessBatch(bool bAsyncBuild);
     bool ProcessRegister();
     void AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild);
-    void ReleaseComponent(class UXSPBatchMeshComponent* Component);
-    void RegisterComponent(class UXSPBatchMeshComponent* Component);
+    void ReleaseComponent(UPrimitiveComponent* Component);
+    void RegisterComponent(UPrimitiveComponent* Component);
 
 private:
     class AXSPSubModelActor* Parent;
@@ -52,12 +52,12 @@ private:
     TArray<int32> NodeToBuildArray;
 
     //节点与Component对应关系表
-    TMap<int32, class UXSPBatchMeshComponent*> NodeComponentMap;
+    TMap<int32, UPrimitiveComponent*> NodeComponentMap;
 
     //全部Component的数组
-    TArray<class UXSPBatchMeshComponent*> BatchMeshComponentArray;
+    TArray<UPrimitiveComponent*> BatchMeshComponentArray;
 
     //尚在异步构建中的Component的数组
     UPROPERTY()
-    TArray<class UXSPBatchMeshComponent*> BuildingComponentArray;
+    TArray<UPrimitiveComponent*> BuildingComponentArray;
 };

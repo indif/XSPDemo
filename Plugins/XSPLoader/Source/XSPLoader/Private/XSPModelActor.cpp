@@ -7,6 +7,7 @@
 #include "XSPFileReader.h"
 #include "XSPSubModelActor.h"
 #include "XSPBatchMeshComponent.h"
+#include "XSPCustomMeshComponent.h"
 #include "XSPStat.h"
 
 
@@ -30,6 +31,7 @@ extern int32 XSPMaxNumBatches;
 extern int32 XSPMaxNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesUnbatch;
+
 
 // Sets default values
 AXSPModelActor::AXSPModelActor()
@@ -63,9 +65,9 @@ bool AXSPModelActor::Load(const TArray<FString>& FilePathNameArray, bool bAsyncB
 
 int32 AXSPModelActor::GetNode(UPrimitiveComponent* Component, int32 FaceIndex)
 {
-    UXSPBatchMeshComponent* XSPBatchMeshComponent = Cast<UXSPBatchMeshComponent>(Component);
-    if (XSPBatchMeshComponent)
-        return XSPBatchMeshComponent->GetNode(FaceIndex);
+    MyComponentClass* MyComponent = Cast<MyComponentClass>(Component);
+    if (nullptr != MyComponent)
+        return MyComponent->GetNode(FaceIndex);
 
     return -1;
 }

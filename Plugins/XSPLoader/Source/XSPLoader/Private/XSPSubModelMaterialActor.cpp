@@ -3,13 +3,14 @@
 #include "XSPModelActor.h"
 #include "XSPDataStruct.h"
 #include "MeshUtils.h"
-#include "XSPBatchMeshComponent.h"
 #include "XSPStat.h"
-
+#include "XSPBatchMeshComponent.h"
+#include "XSPCustomMeshComponent.h"
 
 extern int32 XSPMaxNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesUnbatch;
+
 
 AXSPSubModelMaterialActor::AXSPSubModelMaterialActor()
 {
@@ -75,7 +76,7 @@ bool AXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAs
 
 bool AXSPSubModelMaterialActor::PreProcess()
 {
-    TArray<UXSPBatchMeshComponent*> ComponentsToRelease;
+    TArray<UPrimitiveComponent*> ComponentsToRelease;
 
     //处理待移除
     for (int32 Dbid : NodeToRemoveArray)
@@ -83,7 +84,7 @@ bool AXSPSubModelMaterialActor::PreProcess()
         if (!NodeComponentMap.Contains(Dbid))
             continue;
 
-        UXSPBatchMeshComponent* Component = NodeComponentMap[Dbid];
+        MyComponentClass* Component = Cast<MyComponentClass>(NodeComponentMap[Dbid]);
         check(Component);
         if (!ComponentsToRelease.Contains(Component))
         {
@@ -111,9 +112,9 @@ bool AXSPSubModelMaterialActor::PreProcess()
     //打开未满的包
     if (!NodeToBuildArray.IsEmpty())
     {
-        for (TArray<UXSPBatchMeshComponent*>::TIterator Itr(BatchMeshComponentArray); Itr; ++Itr)
+        for (TArray<UPrimitiveComponent*>::TIterator Itr(BatchMeshComponentArray); Itr; ++Itr)
         {
-            UXSPBatchMeshComponent* Component = *Itr;
+            MyComponentClass* Component = Cast<MyComponentClass>(*Itr);
             if (Component->GetNumVertices() < XSPMinNumVerticesPerBatch) //未满包的
             {
                 if (!ComponentsToRelease.Contains(Component))
@@ -128,7 +129,7 @@ bool AXSPSubModelMaterialActor::PreProcess()
     }
 
     //释放包
-    for (UXSPBatchMeshComponent* Component : ComponentsToRelease)
+    for (UPrimitiveComponent* Component : ComponentsToRelease)
     {
         ReleaseComponent(Component);
     }
@@ -170,13 +171,14 @@ void AXSPSubModelMaterialActor::ProcessBatch(bool bAsyncBuild)
 
 bool AXSPSubModelMaterialActor::ProcessRegister()
 {
-    for (TArray<UXSPBatchMeshComponent*>::TIterator Itr(BuildingComponentArray); Itr; ++Itr)
+    for (TArray<UPrimitiveComponent*>::TIterator Itr(BuildingComponentArray); Itr; ++Itr)
     {
-        if ((*Itr)->TryFinishBuildMesh())
+        MyComponentClass* Component = Cast<MyComponentClass>(*Itr);
+        if (Component->TryFinishBuildMesh())
         {
-            if (BatchMeshComponentArray.Contains(*Itr))
+            if (BatchMeshComponentArray.Contains(Component))
             {
-                RegisterComponent(*Itr);
+                RegisterComponent(Component);
             }
 
             Itr.RemoveCurrent();
@@ -187,7 +189,7 @@ bool AXSPSubModelMaterialActor::ProcessRegister()
 
 void AXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild)
 {
-    UXSPBatchMeshComponent* Component = NewObject<UXSPBatchMeshComponent>(this);
+    MyComponentClass* Component = NewObject<MyComponentClass>(this);
     for (int32 Dbid : DbidArray)
     {
         NodeComponentMap[Dbid] = Component;
@@ -212,9 +214,11 @@ void AXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, boo
     }
 }
 
-void AXSPSubModelMaterialActor::ReleaseComponent(UXSPBatchMeshComponent* Component)
+void AXSPSubModelMaterialActor::ReleaseComponent(UPrimitiveComponent* Component)
 {
-    for (int32 Dbid : Component->GetNodes())
+    MyComponentClass* XSPCustomMeshComponent = Cast<MyComponentClass>(Component);
+    const TArray<int32>& NodeIdArray = XSPCustomMeshComponent->GetNodes();
+    for (int32 Dbid : NodeIdArray)
     {
         if (NodeComponentMap.Contains(Dbid))
         {
@@ -229,7 +233,7 @@ void AXSPSubModelMaterialActor::ReleaseComponent(UXSPBatchMeshComponent* Compone
     }
 }
 
-void AXSPSubModelMaterialActor::RegisterComponent(UXSPBatchMeshComponent* Component)
+void AXSPSubModelMaterialActor::RegisterComponent(UPrimitiveComponent* Component)
 {
     Component->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 
@@ -238,5 +242,5 @@ void AXSPSubModelMaterialActor::RegisterComponent(UXSPBatchMeshComponent* Compon
     INC_FLOAT_STAT_BY(STAT_XSPLoader_RegisterComponentTime, (float)(FDateTime::Now().GetTicks() - TicksBeforeRegisterComponent) / ETimespan::TicksPerSecond);
 
     INC_DWORD_STAT(STAT_XSPLoader_NumRegisteredComponents);
-    INC_DWORD_STAT_BY(STAT_XSPLoader_NumRegisteredVertices, Component->GetNumVertices());
+    INC_DWORD_STAT_BY(STAT_XSPLoader_NumRegisteredVertices, Cast<MyComponentClass>(Component)->GetNumVertices());
 }

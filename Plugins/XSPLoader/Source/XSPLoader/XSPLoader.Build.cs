@@ -41,6 +41,9 @@ public class XSPLoader : ModuleRules
                 "MeshConversion",
                 "MeshDescription",
                 "StaticMeshDescription",
+                "Projects",
+				"RenderCore",
+				"RHI"
             }
 			);
 		
