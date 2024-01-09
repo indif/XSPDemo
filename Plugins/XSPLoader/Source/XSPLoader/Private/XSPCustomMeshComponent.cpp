@@ -5,7 +5,6 @@
 #include "MeshUtils.h"
 #include "RHI.h"
 
-//Mesh渲染资源，在Component::Init时（异步）初始化资源，在Component::BeginDestroy时释放资源
 struct FXSPCustomMesh
 {
 	FStaticMeshVertexBuffer StaticMeshVertexBuffer;
@@ -64,24 +63,36 @@ public:
 
     FXSPCustomMeshSceneProxy(UXSPCustomMeshComponent* Component)
         : FPrimitiveSceneProxy(Component)
-        , XSPCustomMeshComponent(Component)
         , CustomMesh(Component->CustomMesh.Get())
-        , MaterialRelevance(Component->Material->GetRelevance_Concurrent(GetScene().GetFeatureLevel()))
+        , Material(Component->GetMaterial(0))
+        , MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
     {
+        NumVertices = Component->NumVerticesTotal;
+        if (Material == NULL)
+        {
+            Material = UMaterial::GetDefaultMaterial(MD_Surface);
+        }
     }
 
     virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
     {
         FPrimitiveViewRelevance Result;
-        Result.bDrawRelevance = IsShown(View);
-        Result.bShadowRelevance = true;//IsShadowCast(View);
+        Result.bDrawRelevance = true;
+        Result.bShadowRelevance = true;
         Result.bStaticRelevance = true;
         Result.bDynamicRelevance = false;
         Result.bRenderInMainPass = ShouldRenderInMainPass();
-        Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+        Result.bRenderInDepthPass = ShouldRenderInDepthPass();
+        Result.bUsesLightingChannels = false;
         Result.bRenderCustomDepth = ShouldRenderCustomDepth();
         Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
         MaterialRelevance.SetPrimitiveViewRelevance(Result);
+
+        if (!View->Family->EngineShowFlags.Materials)
+        {
+            Result.bOpaque = true;
+        }
+
         Result.bVelocityRelevance = IsMovable() & Result.bOpaque & Result.bRenderInMainPass;
         return Result;
     }
@@ -93,40 +104,25 @@ public:
         PDI->DrawMesh(MeshBatch, FLT_MAX);
     }
 
-    virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
-    {
-        for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-        {
-            const FSceneView* View = Views[ViewIndex];
-
-            if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
-            {
-                FMeshBatch MeshBatch;
-                GetMeshElement(MeshBatch);
-                Collector.AddMesh(ViewIndex, MeshBatch);
-            }
-        }
-    }
-
     void GetMeshElement(FMeshBatch& OutMeshBatch) const
     {
         OutMeshBatch.bWireframe = false;
         OutMeshBatch.VertexFactory = &CustomMesh->VertexFactory;
-        OutMeshBatch.MaterialRenderProxy = XSPCustomMeshComponent->Material->GetRenderProxy();
+        OutMeshBatch.MaterialRenderProxy = Material->GetRenderProxy();
         OutMeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
         OutMeshBatch.Type = PT_TriangleList;
         OutMeshBatch.DepthPriorityGroup = SDPG_World;
         OutMeshBatch.bCanApplyViewModeOverrides = false;
         OutMeshBatch.LODIndex = 0;
         OutMeshBatch.SegmentIndex = 0;
-        OutMeshBatch.CastShadow = true;// XSPCustomMeshComponent->CastShadow;
+        OutMeshBatch.CastShadow = true;
 
         FMeshBatchElement& BatchElement = OutMeshBatch.Elements[0];
         BatchElement.IndexBuffer = &CustomMesh->IndexBuffer;
         BatchElement.FirstIndex = 0;
-        BatchElement.NumPrimitives = XSPCustomMeshComponent->NumVerticesTotal / 3;
+        BatchElement.NumPrimitives = NumVertices / 3;
         BatchElement.MinVertexIndex = 0;
-        BatchElement.MaxVertexIndex = XSPCustomMeshComponent->NumVerticesTotal;
+        BatchElement.MaxVertexIndex = NumVertices-1;
     }
     
     virtual bool CanBeOccluded() const override
@@ -147,6 +143,8 @@ public:
 private:
     UXSPCustomMeshComponent* XSPCustomMeshComponent;
     FXSPCustomMesh* CustomMesh;
+    uint32 NumVertices;
+    UMaterialInterface* Material;
     FMaterialRelevance MaterialRelevance;
 };
 
@@ -267,16 +265,6 @@ UBodySetup* UXSPCustomMeshComponent::GetBodySetup()
     }
 
     return MeshBodySetup;
-}
-
-void UXSPCustomMeshComponent::SetMaterial(int32 ElementIndex, UMaterialInterface* InMaterial)
-{
-    Material = InMaterial;
-}
-
-void UXSPCustomMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
-{
-    OutMaterials.Add(Material);
 }
 
 bool UXSPCustomMeshComponent::GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData)

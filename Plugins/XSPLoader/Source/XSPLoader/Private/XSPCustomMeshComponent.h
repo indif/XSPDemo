@@ -1,13 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/PrimitiveComponent.h"
+#include "Components/MeshComponent.h"
 #include "XSPCustomMeshComponent.generated.h"
 
 UCLASS()
-class UXSPCustomMeshComponent : public UPrimitiveComponent, public IInterface_CollisionDataProvider
+class UXSPCustomMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
 {
     GENERATED_BODY()
+
 public:
     UXSPCustomMeshComponent();
     virtual ~UXSPCustomMeshComponent();
@@ -32,9 +33,11 @@ public:
     virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
     virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
     virtual UBodySetup* GetBodySetup() override;
-    virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
-    virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
     // End of UPrimitiveComponent interface
+
+    // Begin UMeshComponent Interface.
+    virtual int32 GetNumMaterials() const override { return 1; }
+    // End UMeshComponent Interface.
 
     // IInterface_CollisionDataProvider Interface
     virtual bool GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
@@ -73,9 +76,6 @@ private:
     UPROPERTY()
     UBodySetup* MeshBodySetup = nullptr;
 
-    UPROPERTY()
-    UMaterialInterface* Material = nullptr;
-
     FAsyncTask<class FXSPBuildCustomMeshTask>* AsyncBuildTask = nullptr;
 };
 
@@ -95,4 +95,4 @@ private:
     UXSPCustomMeshComponent* XSPCustomMeshComponent;
 };
 
-//typedef UXSPCustomMeshComponent MyComponentClass;
+typedef UXSPCustomMeshComponent MyComponentClass;
