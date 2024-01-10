@@ -3,6 +3,7 @@
 #include "XSPDataStruct.h"
 #include "XSPStat.h"
 #include "MeshUtils.h"
+#include "XSPVertexFactory.h"
 #include "RHI.h"
 
 struct FXSPCustomMesh
@@ -13,7 +14,7 @@ struct FXSPCustomMesh
 
 	FRawStaticIndexBuffer IndexBuffer;
 
-    FLocalVertexFactory VertexFactory;
+    FXSPVertexFactory VertexFactory;
 
     FXSPCustomMesh(ERHIFeatureLevel::Type InFeatureLevel)
         : VertexFactory(InFeatureLevel, "FXSPCustomMesh")
@@ -29,7 +30,7 @@ struct FXSPCustomMesh
                 Self->StaticMeshVertexBuffer.InitResource();
                 Self->ColorVertexBuffer.InitResource();
 
-                FLocalVertexFactory::FDataType Data;
+                FXSPVertexFactory::FDataType Data;
                 Self->PositionVertexBuffer.BindPositionVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);

@@ -22,7 +22,7 @@ void FXSPLoaderModule::StartupModule()
 		});
 	XSPLoader = TempXSPLoader;
 
-	const FString ShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("XSPLoader"))->GetBaseDir(), TEXT("Shaders"));
+	const FString ShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("XSPLoader"))->GetBaseDir(), TEXT("Shaders"), TEXT("Private"));
 	AddShaderSourceDirectoryMapping("/Plugin/XSPLoader", ShaderDir);
 }
 
