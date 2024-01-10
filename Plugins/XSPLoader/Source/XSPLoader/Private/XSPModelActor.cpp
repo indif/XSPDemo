@@ -158,10 +158,17 @@ void AXSPModelActor::SetVisibility(int32 Dbid, bool bVisible)
     if (!UpdateOperation())
         return;
 
-    AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
-    if (nullptr != XSPSubModelActor)
+    if (Dbid == 0)
     {
-        XSPSubModelActor->SetVisibility(Dbid, bVisible);
+        GetRootComponent()->SetVisibility(bVisible, true);
+    }
+    else
+    {
+        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        if (nullptr != XSPSubModelActor)
+        {
+            XSPSubModelActor->SetVisibility(Dbid, bVisible);
+        }
     }
 }
 

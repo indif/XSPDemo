@@ -50,10 +50,6 @@ public:
 	{
 		FVertexStreamComponent PreSkinPositionComponent;
 		FRHIShaderResourceView* PreSkinPositionComponentSRV = nullptr;
-#if WITH_EDITORONLY_DATA
-		const class UStaticMesh* StaticMesh = nullptr;
-		bool bIsCoarseProxy = false;
-#endif
 	};
 
 	/**
@@ -146,12 +142,6 @@ public:
 	{
 		return UniformBuffer.GetReference();
 	}
-
-#if WITH_EDITORONLY_DATA
-	virtual bool IsCoarseProxyMesh() const override { return Data.bIsCoarseProxy; }
-
-	inline const class UStaticMesh* GetStaticMesh() const { return Data.StaticMesh; }
-#endif
 
 protected:
 	friend class FXSPVertexFactoryShaderParameters;

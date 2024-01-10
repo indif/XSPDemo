@@ -74,6 +74,9 @@ public:
             Material = UMaterial::GetDefaultMaterial(MD_Surface);
         }
     }
+    ~FXSPCustomMeshSceneProxy()
+    {
+    }
 
     virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
     {

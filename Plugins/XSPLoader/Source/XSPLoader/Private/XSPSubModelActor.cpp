@@ -72,10 +72,17 @@ void AXSPSubModelActor::ClearRenderCustomDepthStencil(const TArray<int32>& DbidA
 
 void AXSPSubModelActor::SetVisibility(int32 Dbid, bool bVisible)
 {
-    TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
-    for (int32 LeafNodeDbid : ChildLeafNodeArray)
+    if (Dbid == StartDbid)
     {
-        SetLeafNodeVisibility(LeafNodeDbid, bVisible);
+        GetRootComponent()->SetVisibility(bVisible, true);
+    }
+    else
+    {
+        TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
+        for (int32 LeafNodeDbid : ChildLeafNodeArray)
+        {
+            SetLeafNodeVisibility(LeafNodeDbid, bVisible);
+        }
     }
 }
 

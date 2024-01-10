@@ -12,14 +12,14 @@
 IMPLEMENT_TYPE_LAYOUT(FXSPVertexFactoryShaderParametersBase);
 IMPLEMENT_TYPE_LAYOUT(FXSPVertexFactoryShaderParameters);
 
-class FSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
+class FXSPSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
 {
 	typedef TUniformBuffer< FSpeedTreeUniformParameters > Super;
 public:
 	virtual void InitDynamicRHI() override;
 };
 
-void FSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
+void FXSPSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
 {
 	FSpeedTreeUniformParameters Parameters;
 	FMemory::Memzero(Parameters);
@@ -28,7 +28,7 @@ void FSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
 	Super::InitDynamicRHI();
 }
 
-static TGlobalResource< FSpeedTreeWindNullUniformBuffer > GSpeedTreeWindNullUniformBuffer;
+static TGlobalResource< FXSPSpeedTreeWindNullUniformBuffer > GSpeedTreeWindNullUniformBuffer;
 
 void FXSPVertexFactoryShaderParametersBase::Bind(const FShaderParameterMap& ParameterMap)
 {
