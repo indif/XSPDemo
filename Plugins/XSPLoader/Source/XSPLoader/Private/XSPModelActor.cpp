@@ -108,10 +108,20 @@ void AXSPModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthSt
     if (!UpdateOperation())
         return;
 
-    AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
-    if (nullptr != XSPSubModelActor)
+    if (Dbid == 0)
     {
-        XSPSubModelActor->SetRenderCustomDepthStencil(Dbid, CustomDepthStencilValue);
+        for (auto Pair : SubModelActorMap)
+        {
+            Pair.Value->SetRenderCustomDepthStencil(Pair.Key, CustomDepthStencilValue);
+        }
+    }
+    else
+    {
+        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        if (nullptr != XSPSubModelActor)
+        {
+            XSPSubModelActor->SetRenderCustomDepthStencil(Dbid, CustomDepthStencilValue);
+        }
     }
 }
 
@@ -133,10 +143,20 @@ void AXSPModelActor::ClearRenderCustomDepthStencil(int32 Dbid)
     if (!UpdateOperation())
         return;
 
-    AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
-    if (nullptr != XSPSubModelActor)
+    if (Dbid == 0)
     {
-        XSPSubModelActor->ClearRenderCustomDepthStencil(Dbid);
+        for (auto Pair : SubModelActorMap)
+        {
+            Pair.Value->ClearRenderCustomDepthStencil(Pair.Key);
+        }
+    }
+    else
+    {
+        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        if (nullptr != XSPSubModelActor)
+        {
+            XSPSubModelActor->ClearRenderCustomDepthStencil(Dbid);
+        }
     }
 }
 
@@ -190,10 +210,20 @@ void AXSPModelActor::SetRenderColor(int32 Dbid, const FLinearColor& Color)
     if (!UpdateOperation())
         return;
 
-    AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
-    if (nullptr != XSPSubModelActor)
+    if (Dbid == 0)
     {
-        XSPSubModelActor->SetRenderColor(Dbid, Color);
+        for (auto Pair : SubModelActorMap)
+        {
+            Pair.Value->SetRenderColor(Pair.Key, Color);
+        }
+    }
+    else
+    {
+        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        if (nullptr != XSPSubModelActor)
+        {
+            XSPSubModelActor->SetRenderColor(Dbid, Color);
+        }
     }
 }
 
@@ -215,10 +245,20 @@ void AXSPModelActor::ClearRenderColor(int32 Dbid)
     if (!UpdateOperation())
         return;
 
-    AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
-    if (nullptr != XSPSubModelActor)
+    if (Dbid == 0)
     {
-        XSPSubModelActor->ClearRenderColor(Dbid);
+        for (auto Pair : SubModelActorMap)
+        {
+            Pair.Value->ClearRenderColor(Pair.Key);
+        }
+    }
+    else
+    {
+        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        if (nullptr != XSPSubModelActor)
+        {
+            XSPSubModelActor->ClearRenderColor(Dbid);
+        }
     }
 }
 
