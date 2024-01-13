@@ -100,7 +100,7 @@ public:
 
 	inline FRHIShaderResourceView* GetPositionsSRV() const
 	{
-		return Data.PositionComponentSRV;
+		return Data.XSPPositionComponentSRV;
 	}
 
 	inline FRHIShaderResourceView* GetPreSkinPositionSRV() const
@@ -159,7 +159,7 @@ protected:
 };
 
 /**
- * Shader parameters for all LocalVertexFactory derived classes.
+ * Shader parameters for all XSPVertexFactory derived classes.
  */
 class FXSPVertexFactoryShaderParametersBase : public FVertexFactoryShaderParameters
 {

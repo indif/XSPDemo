@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	LocalVertexFactory.ush: Local vertex factory shader code.
+	XSPVertexFactory.ush: Local vertex factory shader code.
 =============================================================================*/
 
 #include "/Engine/Private/VertexFactoryCommon.ush"

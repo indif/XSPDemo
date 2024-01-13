@@ -40,7 +40,7 @@ IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryUniformShaderParameter
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryLooseParameters, "XSPVFLooseParameters");
 
 TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(
-	const FXSPVertexFactory* LocalVertexFactory,
+	const FXSPVertexFactory* XSPVertexFactory,
 	uint32 LODLightmapDataIndex,
 	FColorVertexBuffer* OverrideColorVertexBuffer,
 	int32 BaseVertexIndex,
@@ -54,11 +54,11 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniform
 
 	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 	{
-		UniformParameters.VertexFetch_PositionBuffer = LocalVertexFactory->GetPositionsSRV();
-		UniformParameters.VertexFetch_PreSkinPositionBuffer = LocalVertexFactory->GetPreSkinPositionSRV();
+		UniformParameters.VertexFetch_PositionBuffer = XSPVertexFactory->GetPositionsSRV();
+		UniformParameters.VertexFetch_PreSkinPositionBuffer = XSPVertexFactory->GetPreSkinPositionSRV();
 
-		UniformParameters.VertexFetch_PackedTangentsBuffer = LocalVertexFactory->GetTangentsSRV();
-		UniformParameters.VertexFetch_TexCoordBuffer = LocalVertexFactory->GetTextureCoordinatesSRV();
+		UniformParameters.VertexFetch_PackedTangentsBuffer = XSPVertexFactory->GetTangentsSRV();
+		UniformParameters.VertexFetch_TexCoordBuffer = XSPVertexFactory->GetTextureCoordinatesSRV();
 
 		if (OverrideColorVertexBuffer)
 		{
@@ -67,8 +67,8 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniform
 		}
 		else
 		{
-			UniformParameters.VertexFetch_ColorComponentsBuffer = LocalVertexFactory->GetColorComponentsSRV();
-			ColorIndexMask = (int32)LocalVertexFactory->GetColorIndexMask();
+			UniformParameters.VertexFetch_ColorComponentsBuffer = XSPVertexFactory->GetColorComponentsSRV();
+			ColorIndexMask = (int32)XSPVertexFactory->GetColorIndexMask();
 		}
 	}
 	else
@@ -84,8 +84,8 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniform
 		UniformParameters.VertexFetch_ColorComponentsBuffer = GNullColorVertexBuffer.VertexBufferSRV;
 	}
 
-	const int32 NumTexCoords = LocalVertexFactory->GetNumTexcoords();
-	const int32 LightMapCoordinateIndex = LocalVertexFactory->GetLightMapCoordinateIndex();
+	const int32 NumTexCoords = XSPVertexFactory->GetNumTexcoords();
+	const int32 LightMapCoordinateIndex = XSPVertexFactory->GetLightMapCoordinateIndex();
 	const int32 EffectiveBaseVertexIndex = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform) ? 0 : BaseVertexIndex;
 	const int32 EffectivePreSkinBaseVertexIndex = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform) ? 0 : PreSkinBaseVertexIndex;
 
@@ -108,14 +108,14 @@ void FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 	FVertexInputStreamArray& VertexStreams
 ) const
 {
-	const auto* LocalVertexFactory = static_cast<const FXSPVertexFactory*>(VertexFactory);
+	const auto* XSPVertexFactory = static_cast<const FXSPVertexFactory*>(VertexFactory);
 
-	if (LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
+	if (XSPVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
 	{
 		if (!VertexFactoryUniformBuffer)
 		{
 			// No batch element override
-			VertexFactoryUniformBuffer = LocalVertexFactory->GetUniformBuffer();
+			VertexFactoryUniformBuffer = XSPVertexFactory->GetUniformBuffer();
 		}
 
 		ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
@@ -127,9 +127,9 @@ void FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
 		check(OverrideColorVertexBuffer);
 
-		if (!LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
+		if (!XSPVertexFactory->SupportsManualVertexFetch(FeatureLevel))
 		{
-			LocalVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
+			XSPVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
 		}
 	}
 
@@ -172,9 +172,9 @@ void FXSPVertexFactoryShaderParameters::GetElementShaderBindings(
 	FVertexInputStreamArray& VertexStreams
 ) const
 {
-	FXSPVertexFactory const* LocalVertexFactory = static_cast<FXSPVertexFactory const*>(VertexFactory);
-	ShaderBindings.Add(IsGPUSkinPassThrough, (uint32)(LocalVertexFactory->bGPUSkinPassThrough ? 1 : 0));
-	if (LocalVertexFactory->bGPUSkinPassThrough)
+	FXSPVertexFactory const* XSPVertexFactory = static_cast<FXSPVertexFactory const*>(VertexFactory);
+	ShaderBindings.Add(IsGPUSkinPassThrough, (uint32)(XSPVertexFactory->bGPUSkinPassThrough ? 1 : 0));
+	if (XSPVertexFactory->bGPUSkinPassThrough)
 	{
 		GetElementShaderBindingsGPUSkinPassThrough(
 			Scene,
@@ -205,7 +205,7 @@ void FXSPVertexFactoryShaderParameters::GetElementShaderBindings(
 			VertexStreams);
 	}
 
-	ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryLooseParameters>(), LocalVertexFactory->LooseParametersUniformBuffer);
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryLooseParameters>(), XSPVertexFactory->LooseParametersUniformBuffer);
 }
 
 void FXSPVertexFactoryShaderParameters::GetElementShaderBindingsGPUSkinPassThrough(
@@ -401,34 +401,10 @@ void FXSPVertexFactory::InitRHI()
 	const bool bCanUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, GetFeatureLevel());
 	const bool bUseManualVertexFetch = SupportsManualVertexFetch(GetFeatureLevel());
 
-	// If the vertex buffer containing position is not the same vertex buffer containing the rest of the data,
-	// then initialize PositionStream and PositionDeclaration.
-	if (Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
-	{
-		auto AddDeclaration = [this](EVertexInputStreamType InputStreamType, bool bAddNormal)
-			{
-				FVertexDeclarationElementList StreamElements;
-				StreamElements.Add(AccessStreamComponent(Data.PositionComponent, 0, InputStreamType));
-
-				bAddNormal = bAddNormal && Data.TangentBasisComponents[1].VertexBuffer != NULL;
-				if (bAddNormal)
-				{
-					StreamElements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2, InputStreamType));
-				}
-
-				AddPrimitiveIdStreamElement(InputStreamType, StreamElements, 1, 8);
-
-				InitDeclaration(StreamElements, InputStreamType);
-			};
-
-		//AddDeclaration(EVertexInputStreamType::PositionOnly, false);
-		//AddDeclaration(EVertexInputStreamType::PositionAndNormalOnly, true);
-	}
-
 	FVertexDeclarationElementList Elements;
-	if (Data.PositionComponent.VertexBuffer != nullptr)
+	if (Data.XSPPositionComponent.VertexBuffer != nullptr)
 	{
-		Elements.Add(AccessStreamComponent(Data.PositionComponent, 0));
+		Elements.Add(AccessStreamComponent(Data.XSPPositionComponent, 0));
 	}
 
 	AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 8);
