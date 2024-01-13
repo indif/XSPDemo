@@ -9,6 +9,8 @@
 #include "StaticMeshVertexData.h"
 #include "GPUSkinCache.h"
 
+#include "XSPVertexFactory.h"
+
 /*-----------------------------------------------------------------------------
 FXSPPositionVertexBuffer
 -----------------------------------------------------------------------------*/
@@ -118,13 +120,13 @@ void FXSPPositionVertexBuffer::AllocateData( bool bInNeedsCPUAccess /*= true*/ )
 	Stride = VertexData->GetStride();
 }
 
-void FXSPPositionVertexBuffer::BindPositionVertexBuffer(const FVertexFactory* VertexFactory, FStaticMeshDataType& StaticMeshData) const
+void FXSPPositionVertexBuffer::BindPositionVertexBuffer(const FVertexFactory* VertexFactory, FXSPDataType& XSPData) const
 {
-	StaticMeshData.PositionComponent = FVertexStreamComponent(
+	XSPData.XSPPositionComponent = FVertexStreamComponent(
 		this,
 		STRUCT_OFFSET(FXSPPositionVertex, Position),
 		GetStride(),
 		VET_Float3
 	);
-	StaticMeshData.PositionComponentSRV = PositionComponentSRV;
+	XSPData.XSPPositionComponentSRV = PositionComponentSRV;
 }

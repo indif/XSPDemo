@@ -350,7 +350,7 @@ void FXSPVertexFactory::GetPSOPrecacheVertexFetchElements(EVertexInputStreamType
 	}
 }
 
-void FXSPVertexFactory::SetData(const FDataType& InData)
+void FXSPVertexFactory::SetData(const FXSPDataType& InData)
 {
 	check(IsInRenderingThread());
 
@@ -380,7 +380,7 @@ void FXSPVertexFactory::SetData(const FDataType& InData)
 void FXSPVertexFactory::Copy(const FXSPVertexFactory& Other)
 {
 	FXSPVertexFactory* VertexFactory = this;
-	const FDataType* DataCopy = &Other.Data;
+	const FXSPDataType* DataCopy = &Other.Data;
 	ENQUEUE_RENDER_COMMAND(FLocalVertexFactoryCopyData)(
 		[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
 		{
@@ -421,8 +421,8 @@ void FXSPVertexFactory::InitRHI()
 				InitDeclaration(StreamElements, InputStreamType);
 			};
 
-		AddDeclaration(EVertexInputStreamType::PositionOnly, false);
-		AddDeclaration(EVertexInputStreamType::PositionAndNormalOnly, true);
+		//AddDeclaration(EVertexInputStreamType::PositionOnly, false);
+		//AddDeclaration(EVertexInputStreamType::PositionAndNormalOnly, true);
 	}
 
 	FVertexDeclarationElementList Elements;

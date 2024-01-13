@@ -29,7 +29,7 @@ struct FXSPCustomMesh
                 Self->PositionVertexBuffer.InitResource();
                 Self->StaticMeshVertexBuffer.InitResource();
 
-                FXSPVertexFactory::FDataType Data;
+                FXSPDataType Data;
                 Self->PositionVertexBuffer.BindPositionVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);

@@ -4,7 +4,6 @@
 
 #include "RenderResource.h"
 
-struct FStaticMeshBuildVertex;
 
 /** A vertex that stores just position. */
 struct FXSPPositionVertex
@@ -49,7 +48,7 @@ public:
 	virtual void ReleaseRHI() override;
 	virtual FString GetFriendlyName() const override { return TEXT("PositionOnly Static-mesh vertices"); }
 
-	void BindPositionVertexBuffer(const class FVertexFactory* VertexFactory, struct FStaticMeshDataType& Data) const;
+	void BindPositionVertexBuffer(const class FVertexFactory* VertexFactory, struct FXSPDataType& Data) const;
 
 	void* GetVertexData() { return Data; }
 

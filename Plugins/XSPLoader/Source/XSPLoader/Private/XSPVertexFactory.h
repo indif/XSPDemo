@@ -32,6 +32,12 @@ extern TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVF
 	int32 PreSkinBaseVertexIndex
 );
 
+struct FXSPDataType : public FStaticMeshDataType
+{
+	FVertexStreamComponent XSPPositionComponent;
+	FRHIShaderResourceView* XSPPositionComponentSRV = nullptr;
+};
+
 /**
  * A vertex factory which simply transforms explicit vertex attributes from local to world space.
  */
@@ -45,10 +51,6 @@ public:
 		, ColorStreamIndex(INDEX_NONE)
 	{
 	}
-
-	struct FDataType : public FStaticMeshDataType
-	{
-	};
 
 	/**
 	 * Should we cache the material's shadertype on this platform with this vertex factory?
@@ -64,7 +66,7 @@ public:
 	/**
 	 * An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
 	 */
-	void SetData(const FDataType& InData);
+	void SetData(const FXSPDataType& InData);
 
 	/**
 	* Copy the data from another vertex factory
@@ -145,18 +147,15 @@ protected:
 	friend class FXSPVertexFactoryShaderParameters;
 	friend class FSkeletalMeshSceneProxy;
 
-	const FDataType& GetData() const { return Data; }
+	const FXSPDataType& GetData() const { return Data; }
 
-	FDataType Data;
+	FXSPDataType Data;
 	TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> UniformBuffer;
 	TUniformBufferRef<FXSPVertexFactoryLooseParameters> LooseParametersUniformBuffer;
 
 	int32 ColorStreamIndex;
 
 	bool bGPUSkinPassThrough = false;
-
-	//FVertexStreamComponent PositionComponent;
-	//FRHIShaderResourceView* PositionComponentSRV = nullptr;
 };
 
 /**
