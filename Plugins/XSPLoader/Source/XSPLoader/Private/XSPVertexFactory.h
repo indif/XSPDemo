@@ -48,8 +48,6 @@ public:
 
 	struct FDataType : public FStaticMeshDataType
 	{
-		FVertexStreamComponent PreSkinPositionComponent;
-		FRHIShaderResourceView* PreSkinPositionComponentSRV = nullptr;
 	};
 
 	/**
@@ -105,7 +103,7 @@ public:
 
 	inline FRHIShaderResourceView* GetPreSkinPositionSRV() const
 	{
-		return Data.PreSkinPositionComponentSRV ? Data.PreSkinPositionComponentSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
+		return GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 	}
 
 	inline FRHIShaderResourceView* GetTangentsSRV() const
@@ -156,6 +154,9 @@ protected:
 	int32 ColorStreamIndex;
 
 	bool bGPUSkinPassThrough = false;
+
+	//FVertexStreamComponent PositionComponent;
+	//FRHIShaderResourceView* PositionComponentSRV = nullptr;
 };
 
 /**

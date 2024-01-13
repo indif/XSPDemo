@@ -494,7 +494,8 @@ void FXSPVertexFactory::InitRHI()
 
 		// Fill PreSkinPosition slot for GPUSkinPassThrough vertex factory, or else use a dummy buffer.
 		FVertexStreamComponent NullComponent(&GNullVertexBuffer, 0, 0, VET_Float4);
-		Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent.VertexBuffer ? Data.PreSkinPositionComponent : NullComponent, 14));
+		//Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent.VertexBuffer ? Data.PreSkinPositionComponent : NullComponent, 14));
+		Elements.Add(AccessStreamComponent(NullComponent, 14));
 
 		if (Data.LightMapCoordinateComponent.VertexBuffer)
 		{

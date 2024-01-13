@@ -5,12 +5,12 @@
 #include "MeshUtils.h"
 #include "XSPVertexFactory.h"
 #include "RHI.h"
+#include "XSPPositionVertexBuffer.h"
 
 struct FXSPCustomMesh
 {
 	FStaticMeshVertexBuffer StaticMeshVertexBuffer;
-	FPositionVertexBuffer PositionVertexBuffer;
-	FColorVertexBuffer ColorVertexBuffer;
+	FXSPPositionVertexBuffer PositionVertexBuffer;
 
 	FRawStaticIndexBuffer IndexBuffer;
 
@@ -28,14 +28,12 @@ struct FXSPCustomMesh
             {
                 Self->PositionVertexBuffer.InitResource();
                 Self->StaticMeshVertexBuffer.InitResource();
-                Self->ColorVertexBuffer.InitResource();
 
                 FXSPVertexFactory::FDataType Data;
                 Self->PositionVertexBuffer.BindPositionVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindLightMapVertexBuffer(&Self->VertexFactory, Data, 0);
-                Self->ColorVertexBuffer.BindColorVertexBuffer(&Self->VertexFactory, Data);
                 Self->VertexFactory.SetData(Data);
                 Self->VertexFactory.InitResource();
 
@@ -47,7 +45,6 @@ struct FXSPCustomMesh
     {
         BeginReleaseResource(&StaticMeshVertexBuffer);
         BeginReleaseResource(&PositionVertexBuffer);
-        BeginReleaseResource(&ColorVertexBuffer);
         BeginReleaseResource(&IndexBuffer);
         BeginReleaseResource(&VertexFactory);
     }
@@ -326,24 +323,34 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
     StaticMeshBuildVertices.SetNum(NumVerticesTotal);
     TArray<uint32> IndexArray;
     IndexArray.SetNum(NumVerticesTotal);
+    CustomMesh->PositionVertexBuffer.Init(NumVerticesTotal, false);
+    void* PositionData = CustomMesh->PositionVertexBuffer.GetVertexData();
+    uint32 PositionStride = CustomMesh->PositionVertexBuffer.GetStride();
+
     FBox3f BoundingBox;
     BoundingBox.Init();
-    int32 Index = 0;
+    uint32 Index = 0;
+    uint32 Offset = 0;
     for (int32 Dbid : DbidArray)
     {
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
+
+        FMemory::Memcpy(&((uint8*)PositionData)[Offset*PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
+
         for (int32 i = 0; i < NumVertices; i++)
         {
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
-            StaticMeshBuildVertices[Index].Position = NodeDataArray[Dbid]->MeshPositionArray[i];
+
             StaticMeshBuildVertices[Index].TangentZ = NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f();
-            StaticMeshBuildVertices[Index].Color = FColor::White;
-            StaticMeshBuildVertices[Index].UVs[0].Set(0, 0);
+
             IndexArray[Index] = Index;
+
             Index++;
         }
+
+        Offset += NumVertices;
     }
-    CustomMesh->PositionVertexBuffer.Init(StaticMeshBuildVertices, false);
+
     CustomMesh->StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 1, false);
     CustomMesh->IndexBuffer.SetIndices(IndexArray, (IndexArray.Num() <= (int32)MAX_uint16 + 1) ? EIndexBufferStride::Type::Force16Bit : EIndexBufferStride::Type::Force32Bit);
     

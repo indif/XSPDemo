@@ -187,7 +187,7 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
             StaticMeshBuildVertices[Index].Position = NodeDataArray[Dbid]->MeshPositionArray[i];
             StaticMeshBuildVertices[Index].TangentZ = NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f();
-            StaticMeshBuildVertices[Index].Color = FColor::White;
+            //StaticMeshBuildVertices[Index].Color = FColor::White;
             StaticMeshBuildVertices[Index].UVs[0].Set(0, 0);
             IndexArray[Index] = Index;
             Index++;
