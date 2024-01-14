@@ -337,7 +337,7 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
 
     //CustomMesh->TangentVertexBuffer.Init(NumVerticesTotal, false);
     //void* TangentData = CustomMesh->TangentVertexBuffer.GetVertexData();
-    //uint32 TangetStride = CustomMesh->TangentVertexBuffer.GetStride();
+    //uint32 TangentStride = CustomMesh->TangentVertexBuffer.GetStride();
 
     FBox3f BoundingBox;
     BoundingBox.Init();
@@ -347,7 +347,9 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
     {
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
 
-        FMemory::Memcpy(&((uint8*)PositionData)[Offset*PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
+        FMemory::Memcpy(&((uint8*)PositionData)[Offset * PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
+
+        //FMemory::Memcpy(&((uint8*)TangentData)[Offset * TangentStride], NodeDataArray[Dbid]->MeshNormalArray.GetData(), TangentStride * NumVertices);
 
         for (int32 i = 0; i < NumVertices; i++)
         {

@@ -418,16 +418,16 @@ void FXSPVertexFactory::InitRHI()
 #endif // WITH_EDITOR
 	{
 		// Only the tangent and normal are used by the stream; the bitangent is derived in the shader.
-		uint8 TangentBasisAttributes[2] = { 1, 2 };
-		for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
-		{
-			if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
-			{
-				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
-			}
-		}
-		//Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[0], 1));
-		//Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2));
+		//uint8 TangentBasisAttributes[2] = { 1, 2 };
+		//for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
+		//{
+		//	if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
+		//	{
+		//		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
+		//	}
+		//}
+		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[0], 1));
+		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2));
 
 		//Elements.Add(AccessStreamComponent(Data.XSPTangentXComponent, 1));
 		//Elements.Add(AccessStreamComponent(Data.XSPTangentZComponent, 2));
