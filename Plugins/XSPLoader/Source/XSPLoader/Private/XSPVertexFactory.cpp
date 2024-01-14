@@ -535,7 +535,8 @@ IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FXSPVertexFactory, SF_RayHitGroup, FXSPV
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FXSPVertexFactory, SF_Compute, FXSPVertexFactoryShaderParameters);
 #endif // RHI_RAYTRACING
 
-IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Plugin/XSPLoader/XSPVertexFactory.ush",
+//IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Plugin/XSPLoader/XSPVertexFactory.ush",
+IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Engine/Private/LocalVertexFactory.ush",
 	EVertexFactoryFlags::UsedWithMaterials
 	| EVertexFactoryFlags::SupportsStaticLighting
 	| EVertexFactoryFlags::SupportsDynamicLighting

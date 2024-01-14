@@ -6,7 +6,7 @@
 #include "XSPVertexFactory.h"
 #include "RHI.h"
 #include "XSPPositionVertexBuffer.h"
-#include "XSPTangentVertexBuffer.h"
+//#include "XSPTangentVertexBuffer.h"
 
 struct FXSPCustomMesh
 {
