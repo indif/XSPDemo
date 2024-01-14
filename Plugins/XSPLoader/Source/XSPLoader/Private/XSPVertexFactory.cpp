@@ -39,7 +39,7 @@ void FXSPVertexFactoryShaderParametersBase::Bind(const FShaderParameterMap& Para
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryUniformShaderParameters, "XSPVF");
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryLooseParameters, "XSPVFLooseParameters");
 
-TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(
+TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBuffer(
 	const FXSPVertexFactory* XSPVertexFactory,
 	uint32 LODLightmapDataIndex,
 	FColorVertexBuffer* OverrideColorVertexBuffer,
@@ -426,6 +426,11 @@ void FXSPVertexFactory::InitRHI()
 				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
 			}
 		}
+		//Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[0], 1));
+		//Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2));
+
+		//Elements.Add(AccessStreamComponent(Data.XSPTangentXComponent, 1));
+		//Elements.Add(AccessStreamComponent(Data.XSPTangentZComponent, 2));
 
 		if (Data.ColorComponentsSRV == nullptr)
 		{
@@ -467,6 +472,21 @@ void FXSPVertexFactory::InitRHI()
 				));
 			}
 		}
+		else
+		{
+			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
+
+			Data.TextureCoordinatesSRV = GNullColorVertexBuffer.VertexBufferSRV;
+
+			const int32 BaseTexCoordAttribute = 4;
+			for (int32 CoordinateIndex = 0; CoordinateIndex < MAX_STATIC_TEXCOORDS / 2; ++CoordinateIndex)
+			{
+				Elements.Add(AccessStreamComponent(
+					NullColorComponent,
+					BaseTexCoordAttribute + CoordinateIndex
+				));
+			}
+		}
 
 		// Fill PreSkinPosition slot for GPUSkinPassThrough vertex factory, or else use a dummy buffer.
 		FVertexStreamComponent NullComponent(&GNullVertexBuffer, 0, 0, VET_Float4);
@@ -481,6 +501,11 @@ void FXSPVertexFactory::InitRHI()
 		{
 			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0], 15));
 		}
+		else
+		{
+			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
+			Elements.Add(AccessStreamComponent(NullColorComponent, 15));
+		}
 	}
 
 	check(Streams.Num() > 0);
@@ -494,7 +519,7 @@ void FXSPVertexFactory::InitRHI()
 	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || bCanUseGPUScene)
 	{
 		SCOPED_LOADTIMER(FLocalVertexFactory_InitRHI_CreateLocalVFUniformBuffer);
-		UniformBuffer = CreateLocalVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex, DefaultPreSkinBaseVertexIndex);
+		UniformBuffer = CreateXSPVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex, DefaultPreSkinBaseVertexIndex);
 	}
 
 	FXSPVertexFactoryLooseParameters LooseParameters;

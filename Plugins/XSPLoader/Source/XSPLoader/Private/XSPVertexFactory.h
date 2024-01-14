@@ -36,6 +36,10 @@ struct FXSPDataType : public FStaticMeshDataType
 {
 	FVertexStreamComponent XSPPositionComponent;
 	FRHIShaderResourceView* XSPPositionComponentSRV = nullptr;
+
+	FVertexStreamComponent XSPTangentXComponent;
+	FVertexStreamComponent XSPTangentZComponent;
+	FRHIShaderResourceView* XSPTangentComponentSRV = nullptr;
 };
 
 /**
@@ -110,7 +114,7 @@ public:
 
 	inline FRHIShaderResourceView* GetTangentsSRV() const
 	{
-		return Data.TangentsSRV;
+		return /*Data.XSPTangentComponentSRV;*/Data.TangentsSRV;
 	}
 
 	inline FRHIShaderResourceView* GetTextureCoordinatesSRV() const

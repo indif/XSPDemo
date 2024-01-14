@@ -802,6 +802,9 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, inout float TangentSign)
 		TangentX = TangentBias(TangentInputX);
 		TangentZ = TangentBias(TangentInputZ);
 	}
+	
+	//RLW
+    TangentX = half3(0,0,0);
 
 	TangentSign = TangentZ.w;
 

@@ -6,10 +6,14 @@
 #include "XSPVertexFactory.h"
 #include "RHI.h"
 #include "XSPPositionVertexBuffer.h"
+#include "XSPTangentVertexBuffer.h"
 
 struct FXSPCustomMesh
 {
 	FStaticMeshVertexBuffer StaticMeshVertexBuffer;
+
+    //FXSPTangentVertexBuffer TangentVertexBuffer;
+
 	FXSPPositionVertexBuffer PositionVertexBuffer;
 
 	FRawStaticIndexBuffer IndexBuffer;
@@ -27,13 +31,15 @@ struct FXSPCustomMesh
             [Self](FRHICommandListImmediate& RHICmdList)
             {
                 Self->PositionVertexBuffer.InitResource();
+                //Self->TangentVertexBuffer.InitResource();
                 Self->StaticMeshVertexBuffer.InitResource();
 
                 FXSPDataType Data;
                 Self->PositionVertexBuffer.BindPositionVertexBuffer(&Self->VertexFactory, Data);
+                //Self->TangentVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
-                Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);
-                Self->StaticMeshVertexBuffer.BindLightMapVertexBuffer(&Self->VertexFactory, Data, 0);
+                //Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);
+                //Self->StaticMeshVertexBuffer.BindLightMapVertexBuffer(&Self->VertexFactory, Data, 0);
                 Self->VertexFactory.SetData(Data);
                 Self->VertexFactory.InitResource();
 
@@ -44,6 +50,7 @@ struct FXSPCustomMesh
     void ReleaseResources()
     {
         BeginReleaseResource(&StaticMeshVertexBuffer);
+        //BeginReleaseResource(&TangentVertexBuffer);
         BeginReleaseResource(&PositionVertexBuffer);
         BeginReleaseResource(&IndexBuffer);
         BeginReleaseResource(&VertexFactory);
@@ -323,9 +330,14 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
     StaticMeshBuildVertices.SetNum(NumVerticesTotal);
     TArray<uint32> IndexArray;
     IndexArray.SetNum(NumVerticesTotal);
+
     CustomMesh->PositionVertexBuffer.Init(NumVerticesTotal, false);
     void* PositionData = CustomMesh->PositionVertexBuffer.GetVertexData();
     uint32 PositionStride = CustomMesh->PositionVertexBuffer.GetStride();
+
+    //CustomMesh->TangentVertexBuffer.Init(NumVerticesTotal, false);
+    //void* TangentData = CustomMesh->TangentVertexBuffer.GetVertexData();
+    //uint32 TangetStride = CustomMesh->TangentVertexBuffer.GetStride();
 
     FBox3f BoundingBox;
     BoundingBox.Init();
@@ -351,7 +363,7 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
         Offset += NumVertices;
     }
 
-    CustomMesh->StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 1, false);
+    CustomMesh->StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 0, false);
     CustomMesh->IndexBuffer.SetIndices(IndexArray, (IndexArray.Num() <= (int32)MAX_uint16 + 1) ? EIndexBufferStride::Type::Force16Bit : EIndexBufferStride::Type::Force32Bit);
     
     CustomMesh->InitResources();
