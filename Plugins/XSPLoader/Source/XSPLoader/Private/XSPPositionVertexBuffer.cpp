@@ -122,11 +122,11 @@ void FXSPPositionVertexBuffer::AllocateData( bool bInNeedsCPUAccess /*= true*/ )
 
 void FXSPPositionVertexBuffer::BindPositionVertexBuffer(const FVertexFactory* VertexFactory, FXSPDataType& XSPData) const
 {
-	XSPData.XSPPositionComponent = FVertexStreamComponent(
+	XSPData.PositionComponent = FVertexStreamComponent(
 		this,
 		STRUCT_OFFSET(FXSPPositionVertex, Position),
 		GetStride(),
 		VET_Float3
 	);
-	XSPData.XSPPositionComponentSRV = PositionComponentSRV;
+	XSPData.PositionComponentSRV = PositionComponentSRV;
 }

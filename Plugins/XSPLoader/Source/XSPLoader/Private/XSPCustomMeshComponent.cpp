@@ -6,18 +6,12 @@
 #include "XSPVertexFactory.h"
 #include "RHI.h"
 #include "XSPPositionVertexBuffer.h"
-//#include "XSPTangentVertexBuffer.h"
 
 struct FXSPCustomMesh
 {
 	FStaticMeshVertexBuffer StaticMeshVertexBuffer;
-
-    //FXSPTangentVertexBuffer TangentVertexBuffer;
-
 	FXSPPositionVertexBuffer PositionVertexBuffer;
-
 	FRawStaticIndexBuffer IndexBuffer;
-
     FXSPVertexFactory VertexFactory;
 
     FXSPCustomMesh(ERHIFeatureLevel::Type InFeatureLevel)
@@ -31,12 +25,10 @@ struct FXSPCustomMesh
             [Self](FRHICommandListImmediate& RHICmdList)
             {
                 Self->PositionVertexBuffer.InitResource();
-                //Self->TangentVertexBuffer.InitResource();
                 Self->StaticMeshVertexBuffer.InitResource();
 
                 FXSPDataType Data;
                 Self->PositionVertexBuffer.BindPositionVertexBuffer(&Self->VertexFactory, Data);
-                //Self->TangentVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 Self->StaticMeshVertexBuffer.BindTangentVertexBuffer(&Self->VertexFactory, Data);
                 //Self->StaticMeshVertexBuffer.BindPackedTexCoordVertexBuffer(&Self->VertexFactory, Data);
                 //Self->StaticMeshVertexBuffer.BindLightMapVertexBuffer(&Self->VertexFactory, Data, 0);
@@ -50,7 +42,6 @@ struct FXSPCustomMesh
     void ReleaseResources()
     {
         BeginReleaseResource(&StaticMeshVertexBuffer);
-        //BeginReleaseResource(&TangentVertexBuffer);
         BeginReleaseResource(&PositionVertexBuffer);
         BeginReleaseResource(&IndexBuffer);
         BeginReleaseResource(&VertexFactory);
@@ -335,10 +326,6 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
     void* PositionData = CustomMesh->PositionVertexBuffer.GetVertexData();
     uint32 PositionStride = CustomMesh->PositionVertexBuffer.GetStride();
 
-    //CustomMesh->TangentVertexBuffer.Init(NumVerticesTotal, false);
-    //void* TangentData = CustomMesh->TangentVertexBuffer.GetVertexData();
-    //uint32 TangentStride = CustomMesh->TangentVertexBuffer.GetStride();
-
     FBox3f BoundingBox;
     BoundingBox.Init();
     uint32 Index = 0;
@@ -348,8 +335,6 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
 
         FMemory::Memcpy(&((uint8*)PositionData)[Offset * PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
-
-        //FMemory::Memcpy(&((uint8*)TangentData)[Offset * TangentStride], NodeDataArray[Dbid]->MeshNormalArray.GetData(), TangentStride * NumVertices);
 
         for (int32 i = 0; i < NumVertices; i++)
         {

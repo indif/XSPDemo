@@ -1,34 +1,47 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	LocalVertexFactory.cpp: Local vertex factory implementation
+=============================================================================*/
+
 #include "XSPVertexFactory.h"
-#include "SceneView.h"
+//#include "Animation/MeshDeformerGeometry.h"
 #include "MeshBatch.h"
+#include "MeshDrawShaderBindings.h"
+#include "SkeletalRenderPublic.h"
 #include "SpeedTreeWind.h"
-#include "ShaderParameterUtils.h"
+#include "Misc/DelayedAutoRegister.h"
 #include "Rendering/ColorVertexBuffer.h"
+#include "MaterialDomain.h"
 #include "MeshMaterialShader.h"
+#include "PrimitiveUniformShaderParameters.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
 #include "GPUSkinCache.h"
 #include "GPUSkinVertexFactory.h"
+#include "Animation/MeshDeformerProvider.h"
+#include "RenderUtils.h"
+#include "SceneInterface.h"
 
 IMPLEMENT_TYPE_LAYOUT(FXSPVertexFactoryShaderParametersBase);
 IMPLEMENT_TYPE_LAYOUT(FXSPVertexFactoryShaderParameters);
 
-class FXSPSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
+class FSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
 {
 	typedef TUniformBuffer< FSpeedTreeUniformParameters > Super;
 public:
 	virtual void InitDynamicRHI() override;
 };
 
-void FXSPSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
+void FSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
 {
 	FSpeedTreeUniformParameters Parameters;
 	FMemory::Memzero(Parameters);
 	SetContentsNoUpdate(Parameters);
-
+	
 	Super::InitDynamicRHI();
 }
 
-static TGlobalResource< FXSPSpeedTreeWindNullUniformBuffer > GSpeedTreeWindNullUniformBuffer;
+static TGlobalResource< FSpeedTreeWindNullUniformBuffer > GSpeedTreeWindNullUniformBuffer;
 
 void FXSPVertexFactoryShaderParametersBase::Bind(const FShaderParameterMap& ParameterMap)
 {
@@ -39,13 +52,13 @@ void FXSPVertexFactoryShaderParametersBase::Bind(const FShaderParameterMap& Para
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryUniformShaderParameters, "XSPVF");
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FXSPVertexFactoryLooseParameters, "XSPVFLooseParameters");
 
-TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBuffer(
-	const FXSPVertexFactory* XSPVertexFactory,
-	uint32 LODLightmapDataIndex,
-	FColorVertexBuffer* OverrideColorVertexBuffer,
+TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(
+	const FXSPVertexFactory* LocalVertexFactory, 
+	uint32 LODLightmapDataIndex, 
+	FColorVertexBuffer* OverrideColorVertexBuffer, 
 	int32 BaseVertexIndex,
 	int32 PreSkinBaseVertexIndex
-)
+	)
 {
 	FXSPVertexFactoryUniformShaderParameters UniformParameters;
 
@@ -54,11 +67,11 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBu
 
 	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 	{
-		UniformParameters.VertexFetch_PositionBuffer = XSPVertexFactory->GetPositionsSRV();
-		UniformParameters.VertexFetch_PreSkinPositionBuffer = XSPVertexFactory->GetPreSkinPositionSRV();
+		UniformParameters.VertexFetch_PositionBuffer = LocalVertexFactory->GetPositionsSRV();
+		UniformParameters.VertexFetch_PreSkinPositionBuffer = LocalVertexFactory->GetPreSkinPositionSRV();
 
-		UniformParameters.VertexFetch_PackedTangentsBuffer = XSPVertexFactory->GetTangentsSRV();
-		UniformParameters.VertexFetch_TexCoordBuffer = XSPVertexFactory->GetTextureCoordinatesSRV();
+		UniformParameters.VertexFetch_PackedTangentsBuffer = LocalVertexFactory->GetTangentsSRV();
+		UniformParameters.VertexFetch_TexCoordBuffer = LocalVertexFactory->GetTextureCoordinatesSRV();
 
 		if (OverrideColorVertexBuffer)
 		{
@@ -67,13 +80,13 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBu
 		}
 		else
 		{
-			UniformParameters.VertexFetch_ColorComponentsBuffer = XSPVertexFactory->GetColorComponentsSRV();
-			ColorIndexMask = (int32)XSPVertexFactory->GetColorIndexMask();
+			UniformParameters.VertexFetch_ColorComponentsBuffer = LocalVertexFactory->GetColorComponentsSRV();
+			ColorIndexMask = (int32)LocalVertexFactory->GetColorIndexMask();
 		}
 	}
 	else
 	{
-		UniformParameters.VertexFetch_PositionBuffer = GNullColorVertexBuffer.VertexBufferSRV;
+        UniformParameters.VertexFetch_PositionBuffer = GNullColorVertexBuffer.VertexBufferSRV;
 		UniformParameters.VertexFetch_PreSkinPositionBuffer = GNullColorVertexBuffer.VertexBufferSRV;
 		UniformParameters.VertexFetch_PackedTangentsBuffer = GNullColorVertexBuffer.VertexBufferSRV;
 		UniformParameters.VertexFetch_TexCoordBuffer = GNullColorVertexBuffer.VertexBufferSRV;
@@ -84,12 +97,12 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBu
 		UniformParameters.VertexFetch_ColorComponentsBuffer = GNullColorVertexBuffer.VertexBufferSRV;
 	}
 
-	const int32 NumTexCoords = XSPVertexFactory->GetNumTexcoords();
-	const int32 LightMapCoordinateIndex = XSPVertexFactory->GetLightMapCoordinateIndex();
+	const int32 NumTexCoords = LocalVertexFactory->GetNumTexcoords();
+	const int32 LightMapCoordinateIndex = LocalVertexFactory->GetLightMapCoordinateIndex();
 	const int32 EffectiveBaseVertexIndex = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform) ? 0 : BaseVertexIndex;
 	const int32 EffectivePreSkinBaseVertexIndex = RHISupportsAbsoluteVertexID(GMaxRHIShaderPlatform) ? 0 : PreSkinBaseVertexIndex;
 
-	UniformParameters.VertexFetch_Parameters = { ColorIndexMask, NumTexCoords, LightMapCoordinateIndex, EffectiveBaseVertexIndex };
+	UniformParameters.VertexFetch_Parameters = {ColorIndexMask, NumTexCoords, LightMapCoordinateIndex, EffectiveBaseVertexIndex};
 	UniformParameters.PreSkinBaseVertexIndex = EffectivePreSkinBaseVertexIndex;
 
 	return TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
@@ -98,24 +111,24 @@ TUniformBufferRef<FXSPVertexFactoryUniformShaderParameters> CreateXSPVFUniformBu
 void FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 	const FSceneInterface* Scene,
 	const FSceneView* View,
-	const FMeshMaterialShader* Shader,
+	const FMeshMaterialShader* Shader, 
 	const EVertexInputStreamType InputStreamType,
 	ERHIFeatureLevel::Type FeatureLevel,
-	const FVertexFactory* VertexFactory,
+	const FVertexFactory* VertexFactory, 
 	const FMeshBatchElement& BatchElement,
 	FRHIUniformBuffer* VertexFactoryUniformBuffer,
 	FMeshDrawSingleShaderBindings& ShaderBindings,
 	FVertexInputStreamArray& VertexStreams
-) const
+	) const
 {
-	const auto* XSPVertexFactory = static_cast<const FXSPVertexFactory*>(VertexFactory);
-
-	if (XSPVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
+	const auto* LocalVertexFactory = static_cast<const FXSPVertexFactory*>(VertexFactory);
+	
+	if (LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
 	{
 		if (!VertexFactoryUniformBuffer)
 		{
 			// No batch element override
-			VertexFactoryUniformBuffer = XSPVertexFactory->GetUniformBuffer();
+			VertexFactoryUniformBuffer = LocalVertexFactory->GetUniformBuffer();
 		}
 
 		ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
@@ -127,16 +140,16 @@ void FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
 		check(OverrideColorVertexBuffer);
 
-		if (!XSPVertexFactory->SupportsManualVertexFetch(FeatureLevel))
+		if (!LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
 		{
-			XSPVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
-		}
+			LocalVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
+		}	
 	}
 
 	if (bAnySpeedTreeParamIsBound)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FLocalVertexFactoryShaderParameters_SetMesh_SpeedTree);
-		FRHIUniformBuffer* SpeedTreeUniformBuffer = Scene ? Scene->GetSpeedTreeUniformBuffer(VertexFactory) : nullptr;
+		FRHIUniformBuffer* SpeedTreeUniformBuffer = Scene? Scene->GetSpeedTreeUniformBuffer(VertexFactory) : nullptr;
 		if (SpeedTreeUniformBuffer == nullptr)
 		{
 			SpeedTreeUniformBuffer = GSpeedTreeWindNullUniformBuffer.GetUniformBufferRHI();
@@ -156,8 +169,66 @@ void FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(
 void FXSPVertexFactoryShaderParameters::Bind(const FShaderParameterMap& ParameterMap)
 {
 	FXSPVertexFactoryShaderParametersBase::Bind(ParameterMap);
-	GPUSkinCachePositionBuffer.Bind(ParameterMap, TEXT("GPUSkinCachePositionBuffer"));
 	IsGPUSkinPassThrough.Bind(ParameterMap, TEXT("bIsGPUSkinPassThrough"));
+}
+
+bool FXSPVertexFactory::IsGPUSkinPassThroughSupported(EShaderPlatform Platform)
+{
+	// Enable the GPUSkin passthrough path if we might use the GPUSkinCache or MeshDeformers.
+	static IMeshDeformerProvider* MeshDeformerProvider = IMeshDeformerProvider::Get();
+	bool bMeshDeformersAvailable = MeshDeformerProvider && MeshDeformerProvider->IsSupported(Platform);
+	return bMeshDeformersAvailable || IsGPUSkinCacheAvailable(Platform);
+}
+
+//static void GetMeshDeformerVertexStreams(FMeshDeformerGeometry const& InDeformerGeometry, FGPUSkinPassthroughVertexFactory const* InVertexFactory, FVertexInputStreamArray& InOutVertexStreams)
+//{
+//	const int32 PositionStreamIndex = InVertexFactory->GetAttributeStreamIndex(FGPUSkinPassthroughVertexFactory::VertexPosition);
+//	if (PositionStreamIndex > -1 && InDeformerGeometry.Position.IsValid())
+//	{
+//		InOutVertexStreams.Add(FVertexInputStream(PositionStreamIndex, 0, InDeformerGeometry.Position->GetRHI()));
+//	}
+//
+//	const int32 TangentStreamIndex = InVertexFactory->GetAttributeStreamIndex(FGPUSkinPassthroughVertexFactory::VertexTangent);
+//	if (TangentStreamIndex > -1 && InDeformerGeometry.Tangent.IsValid())
+//	{
+//		InOutVertexStreams.Add(FVertexInputStream(TangentStreamIndex, 0, InDeformerGeometry.Tangent->GetRHI()));
+//	}
+//
+//	const int32 ColorStreamIndex = InVertexFactory->GetAttributeStreamIndex(FGPUSkinPassthroughVertexFactory::VertexColor);
+//	if (ColorStreamIndex > -1 && InDeformerGeometry.Color.IsValid())
+//	{
+//		InOutVertexStreams.Add(FVertexInputStream(ColorStreamIndex, 0, InDeformerGeometry.Color->GetRHI()));
+//	}
+//}
+
+static void GetElementShaderBindingsGPUSkinPassThrough(
+	const FMeshMaterialShader* Shader,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams)
+{
+	// Bind vertex streams.
+	FSkinBatchVertexFactoryUserData* BatchUserData = (FSkinBatchVertexFactoryUserData*)BatchElement.VertexFactoryUserData;
+	FGPUSkinPassthroughVertexFactory const* PassthroughVertexFactory = static_cast<FGPUSkinPassthroughVertexFactory const*>(VertexFactory);
+
+	if (BatchUserData != nullptr && BatchUserData->SkinCacheEntry != nullptr)
+	{
+		// Using Skin Cache.
+		;//FGPUSkinCache::GetShaderVertexStreams(BatchUserData->SkinCacheEntry, BatchUserData->SectionIndex, PassthroughVertexFactory, VertexStreams);
+	}
+	else if (BatchUserData != nullptr && BatchUserData->DeformerGeometry != nullptr)
+	{
+		// Using Mesh Deformers.
+		;//GetMeshDeformerVertexStreams(*BatchUserData->DeformerGeometry, PassthroughVertexFactory, VertexStreams);
+	}
+
+	// Bind the vertex factory uniform buffer.
+	if (PassthroughVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
+	{
+		ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryUniformShaderParameters>(), PassthroughVertexFactory->GetUniformBuffer());
+	}
 }
 
 void FXSPVertexFactoryShaderParameters::GetElementShaderBindings(
@@ -172,15 +243,12 @@ void FXSPVertexFactoryShaderParameters::GetElementShaderBindings(
 	FVertexInputStreamArray& VertexStreams
 ) const
 {
-	FXSPVertexFactory const* XSPVertexFactory = static_cast<FXSPVertexFactory const*>(VertexFactory);
-	ShaderBindings.Add(IsGPUSkinPassThrough, (uint32)(XSPVertexFactory->bGPUSkinPassThrough ? 1 : 0));
-	if (XSPVertexFactory->bGPUSkinPassThrough)
+	FXSPVertexFactory const* LocalVertexFactory = static_cast<FXSPVertexFactory const*>(VertexFactory);
+	ShaderBindings.Add(IsGPUSkinPassThrough, (uint32)(LocalVertexFactory->bGPUSkinPassThrough ? 1 : 0));
+	if (LocalVertexFactory->bGPUSkinPassThrough)
 	{
 		GetElementShaderBindingsGPUSkinPassThrough(
-			Scene,
-			View,
 			Shader,
-			InputStreamType,
 			FeatureLevel,
 			VertexFactory,
 			BatchElement,
@@ -205,71 +273,11 @@ void FXSPVertexFactoryShaderParameters::GetElementShaderBindings(
 			VertexStreams);
 	}
 
-	ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryLooseParameters>(), XSPVertexFactory->LooseParametersUniformBuffer);
-}
-
-void FXSPVertexFactoryShaderParameters::GetElementShaderBindingsGPUSkinPassThrough(
-	const FSceneInterface* Scene,
-	const FSceneView* View,
-	const FMeshMaterialShader* Shader,
-	const EVertexInputStreamType InputStreamType,
-	ERHIFeatureLevel::Type FeatureLevel,
-	const FVertexFactory* VertexFactory,
-	const FMeshBatchElement& BatchElement,
-	class FMeshDrawSingleShaderBindings& ShaderBindings,
-	FVertexInputStreamArray& VertexStreams) const
-{
-	// #dxr_todo do we need this call to the base?
-	FXSPVertexFactoryShaderParametersBase::GetElementShaderBindingsBase(Scene, View, Shader, InputStreamType, FeatureLevel, VertexFactory, BatchElement, nullptr, ShaderBindings, VertexStreams);
-
-	// todo: Add more context into VertexFactoryUserData about whether this is skin cache/mesh deformer/ray tracing etc.
-	// For now it just holds a skin cache pointer which is null if using other mesh deformers.
-	FGPUSkinBatchElementUserData* BatchUserData = (FGPUSkinBatchElementUserData*)BatchElement.VertexFactoryUserData;
-	const bool bUsesSkinCache = BatchUserData != nullptr;
-
-	check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
-	FGPUSkinPassthroughVertexFactory const* PassthroughVertexFactory = static_cast<FGPUSkinPassthroughVertexFactory const*>(VertexFactory);
-	if (bUsesSkinCache)
-	{
-		GetElementShaderBindingsSkinCache(PassthroughVertexFactory, BatchUserData, ShaderBindings, VertexStreams);
-	}
-	else
-	{
-		GetElementShaderBindingsMeshDeformer(PassthroughVertexFactory, ShaderBindings, VertexStreams);
-	}
-}
-
-void FXSPVertexFactoryShaderParameters::GetElementShaderBindingsSkinCache(
-	FGPUSkinPassthroughVertexFactory const* PassthroughVertexFactory,
-	FGPUSkinBatchElementUserData* BatchUserData,
-	FMeshDrawSingleShaderBindings& ShaderBindings,
-	FVertexInputStreamArray& VertexStreams) const
-{
-	//FGPUSkinCache::GetShaderBindings(
-	//	BatchUserData->Entry, BatchUserData->Section,
-	//	PassthroughVertexFactory,
-	//	GPUSkinCachePositionBuffer,
-	//	ShaderBindings, VertexStreams);
-}
-
-void FXSPVertexFactoryShaderParameters::GetElementShaderBindingsMeshDeformer(
-	FGPUSkinPassthroughVertexFactory const* PassthroughVertexFactory,
-	FMeshDrawSingleShaderBindings& ShaderBindings,
-	FVertexInputStreamArray& VertexStreams) const
-{
-	//if (PassthroughVertexFactory->PositionRDG.IsValid())
-	//{
-	//	VertexStreams.Add(FVertexInputStream(PassthroughVertexFactory->GetPositionStreamIndex(), 0, PassthroughVertexFactory->PositionRDG->GetRHI()));
-	//	ShaderBindings.Add(GPUSkinCachePositionBuffer, PassthroughVertexFactory->GetPositionsSRV());
-	//}
-	//if (PassthroughVertexFactory->TangentRDG.IsValid() && PassthroughVertexFactory->GetTangentStreamIndex() > -1)
-	//{
-	//	VertexStreams.Add(FVertexInputStream(PassthroughVertexFactory->GetTangentStreamIndex(), 0, PassthroughVertexFactory->TangentRDG->GetRHI()));
-	//}
+	ShaderBindings.Add(Shader->GetUniformBufferParameter<FXSPVertexFactoryLooseParameters>(), LocalVertexFactory->LooseParametersUniformBuffer);
 }
 
 /**
- * Should we cache the material's shadertype on this platform with this vertex factory?
+ * Should we cache the material's shadertype on this platform with this vertex factory? 
  */
 bool FXSPVertexFactory::ShouldCompilePermutation(const FVertexFactoryShaderPermutationParameters& Parameters)
 {
@@ -279,7 +287,7 @@ bool FXSPVertexFactory::ShouldCompilePermutation(const FVertexFactoryShaderPermu
 		return !!WITH_EDITOR;
 	}
 
-	return true;
+	return true; 
 }
 
 void FXSPVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -305,14 +313,14 @@ void FXSPVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryShaderP
 
 	if (Parameters.VertexFactoryType->SupportsGPUSkinPassThrough())
 	{
-		OutEnvironment.SetDefine(TEXT("SUPPORT_GPUSKIN_PASSTHROUGH"), IsGPUSkinCacheAvailable(Parameters.Platform));
+		OutEnvironment.SetDefine(TEXT("SUPPORT_GPUSKIN_PASSTHROUGH"), IsGPUSkinPassThroughSupported(Parameters.Platform));
 	}
 }
 
 void FXSPVertexFactory::ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors)
 {
-	if (Type->SupportsPrimitiveIdStream()
-		&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform))
+	if (Type->SupportsPrimitiveIdStream() 
+		&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform)) 
 		&& !IsMobilePlatform(Platform) // On mobile VS may use PrimtiveUB while GPUScene is enabled
 		&& ParameterMap.ContainsParameterAllocation(FPrimitiveUniformShaderParameters::StaticStructMetadata.GetShaderVariableName()))
 	{
@@ -349,6 +357,18 @@ void FXSPVertexFactory::GetPSOPrecacheVertexFetchElements(EVertexInputStreamType
 		checkNoEntry();
 	}
 }
+
+void FXSPVertexFactory::GetVertexElements(ERHIFeatureLevel::Type FeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch, FXSPDataType& Data, FVertexDeclarationElementList& Elements)
+{
+	FVertexStreamList VertexStreams;
+	int32 ColorStreamIndex;
+	GetVertexElements(FeatureLevel, InputStreamType, bSupportsManualVertexFetch, Data, Elements, VertexStreams, ColorStreamIndex);
+
+	// For ES3.1 attribute ID needs to be done differently
+	check(FeatureLevel > ERHIFeatureLevel::ES3_1);
+	Elements.Add(FVertexElement(VertexStreams.Num(), 0, VET_UInt, 13, 0, true));
+}
+
 
 void FXSPVertexFactory::SetData(const FXSPDataType& InData)
 {
@@ -401,36 +421,89 @@ void FXSPVertexFactory::InitRHI()
 	const bool bCanUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, GetFeatureLevel());
 	const bool bUseManualVertexFetch = SupportsManualVertexFetch(GetFeatureLevel());
 
-	FVertexDeclarationElementList Elements;
-	if (Data.XSPPositionComponent.VertexBuffer != nullptr)
+	// If the vertex buffer containing position is not the same vertex buffer containing the rest of the data,
+	// then initialize PositionStream and PositionDeclaration.
+	if (Data.PositionComponent.VertexBuffer != Data.TangentBasisComponents[0].VertexBuffer)
 	{
-		Elements.Add(AccessStreamComponent(Data.XSPPositionComponent, 0));
+		auto AddDeclaration = [this](EVertexInputStreamType InputStreamType, bool bAddNormal)
+		{
+			FVertexDeclarationElementList StreamElements;
+			StreamElements.Add(AccessStreamComponent(Data.PositionComponent, 0, InputStreamType));
+
+			bAddNormal = bAddNormal && Data.TangentBasisComponents[1].VertexBuffer != NULL;
+			if (bAddNormal)
+			{
+				StreamElements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2, InputStreamType));
+			}
+
+			AddPrimitiveIdStreamElement(InputStreamType, StreamElements, 1, 8);
+
+			InitDeclaration(StreamElements, InputStreamType);
+		};
+
+		AddDeclaration(EVertexInputStreamType::PositionOnly, false);
+		AddDeclaration(EVertexInputStreamType::PositionAndNormalOnly, true);
 	}
 
+	FVertexDeclarationElementList Elements;
+	GetVertexElements(GetFeatureLevel(), EVertexInputStreamType::Default, bUseManualVertexFetch, Data, Elements, Streams, ColorStreamIndex);
 	AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 8);
+	check(Streams.Num() > 0);
+
+	InitDeclaration(Elements);
+	check(IsValidRef(GetDeclaration()));
+
+	const int32 DefaultBaseVertexIndex = 0;
+	const int32 DefaultPreSkinBaseVertexIndex = 0;
+
+	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || bCanUseGPUScene)
+	{
+		SCOPED_LOADTIMER(FLocalVertexFactory_InitRHI_CreateLocalVFUniformBuffer);
+		UniformBuffer = CreateLocalVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex, DefaultPreSkinBaseVertexIndex);
+	}
+
+	FXSPVertexFactoryLooseParameters LooseParameters;
+	LooseParameters.FrameNumber = -1;
+	LooseParameters.GPUSkinPassThroughPositionBuffer = GNullVertexBuffer.VertexBufferSRV;
+	LooseParameters.GPUSkinPassThroughPreviousPositionBuffer = GNullVertexBuffer.VertexBufferSRV;
+	LooseParametersUniformBuffer = TUniformBufferRef<FXSPVertexFactoryLooseParameters>::CreateUniformBufferImmediate(LooseParameters, UniformBuffer_MultiFrame);
+
+	check(IsValidRef(GetDeclaration()));
+}
+
+void FXSPVertexFactory::GetVertexElements(
+	ERHIFeatureLevel::Type FeatureLevel, 
+	EVertexInputStreamType InputStreamType,
+	bool bSupportsManualVertexFetch,
+	FXSPDataType& Data,
+	FVertexDeclarationElementList& Elements, 
+	FVertexStreamList& InOutStreams, 
+	int32& OutColorStreamIndex)
+{
+	check(InputStreamType == EVertexInputStreamType::Default);
+	
+	if (Data.PositionComponent.VertexBuffer != nullptr)
+	{
+		Elements.Add(AccessStreamComponent(Data.PositionComponent, 0, InOutStreams));
+	}
 
 #if !WITH_EDITOR
 	// Can't rely on manual vertex fetch in the editor to not add the unused elements because vertex factories created
 	// with manual vertex fetch support can somehow still be used when booting up in for example ES3.1 preview mode
 	// The vertex factories are then used during mobile rendering and will cause PSO creation failure.
 	// First need to fix invalid usage of these vertex factories before this can be enabled again. (UE-165187)
-	if (!bUseManualVertexFetch)
+	if (!bSupportsManualVertexFetch)
 #endif // WITH_EDITOR
 	{
 		// Only the tangent and normal are used by the stream; the bitangent is derived in the shader.
-		//uint8 TangentBasisAttributes[2] = { 1, 2 };
-		//for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
-		//{
-		//	if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
-		//	{
-		//		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
-		//	}
-		//}
-		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[0], 1));
-		Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2));
-
-		//Elements.Add(AccessStreamComponent(Data.XSPTangentXComponent, 1));
-		//Elements.Add(AccessStreamComponent(Data.XSPTangentZComponent, 2));
+		uint8 TangentBasisAttributes[2] = { 1, 2 };
+		for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
+		{
+			if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
+			{
+				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex], InOutStreams));
+			}
+		}
 
 		if (Data.ColorComponentsSRV == nullptr)
 		{
@@ -438,20 +511,18 @@ void FXSPVertexFactory::InitRHI()
 			Data.ColorIndexMask = 0;
 		}
 
-		ColorStreamIndex = -1;
 		if (Data.ColorComponent.VertexBuffer)
 		{
-			Elements.Add(AccessStreamComponent(Data.ColorComponent, 3));
-			ColorStreamIndex = Elements.Last().StreamIndex;
+			Elements.Add(AccessStreamComponent(Data.ColorComponent, 3, InOutStreams));
 		}
 		else
 		{
 			// If the mesh has no color component, set the null color buffer on a new stream with a stride of 0.
 			// This wastes 4 bytes per vertex, but prevents having to compile out twice the number of vertex factories.
 			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
-			Elements.Add(AccessStreamComponent(NullColorComponent, 3));
-			ColorStreamIndex = Elements.Last().StreamIndex;
+			Elements.Add(AccessStreamComponent(NullColorComponent, 3, InOutStreams));
 		}
+		OutColorStreamIndex = Elements.Last().StreamIndex;
 
 		if (Data.TextureCoordinates.Num())
 		{
@@ -460,7 +531,8 @@ void FXSPVertexFactory::InitRHI()
 			{
 				Elements.Add(AccessStreamComponent(
 					Data.TextureCoordinates[CoordinateIndex],
-					BaseTexCoordAttribute + CoordinateIndex
+					BaseTexCoordAttribute + CoordinateIndex,
+					InOutStreams
 				));
 			}
 
@@ -468,7 +540,8 @@ void FXSPVertexFactory::InitRHI()
 			{
 				Elements.Add(AccessStreamComponent(
 					Data.TextureCoordinates[Data.TextureCoordinates.Num() - 1],
-					BaseTexCoordAttribute + CoordinateIndex
+					BaseTexCoordAttribute + CoordinateIndex,
+					InOutStreams
 				));
 			}
 		}
@@ -483,50 +556,30 @@ void FXSPVertexFactory::InitRHI()
 			{
 				Elements.Add(AccessStreamComponent(
 					NullColorComponent,
-					BaseTexCoordAttribute + CoordinateIndex
+					BaseTexCoordAttribute + CoordinateIndex,
+					InOutStreams
 				));
 			}
 		}
 
 		// Fill PreSkinPosition slot for GPUSkinPassThrough vertex factory, or else use a dummy buffer.
 		FVertexStreamComponent NullComponent(&GNullVertexBuffer, 0, 0, VET_Float4);
-		//Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent.VertexBuffer ? Data.PreSkinPositionComponent : NullComponent, 14));
-		Elements.Add(AccessStreamComponent(NullComponent, 14));
+		Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent.VertexBuffer ? Data.PreSkinPositionComponent : NullComponent, 14, InOutStreams));
 
 		if (Data.LightMapCoordinateComponent.VertexBuffer)
 		{
-			Elements.Add(AccessStreamComponent(Data.LightMapCoordinateComponent, 15));
+			Elements.Add(AccessStreamComponent(Data.LightMapCoordinateComponent, 15, InOutStreams));
 		}
 		else if (Data.TextureCoordinates.Num())
 		{
-			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0], 15));
+			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0], 15, InOutStreams));
 		}
 		else
 		{
 			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
-			Elements.Add(AccessStreamComponent(NullColorComponent, 15));
+			Elements.Add(AccessStreamComponent(NullColorComponent, 15, InOutStreams));
 		}
 	}
-
-	check(Streams.Num() > 0);
-
-	InitDeclaration(Elements);
-	check(IsValidRef(GetDeclaration()));
-
-	const int32 DefaultBaseVertexIndex = 0;
-	const int32 DefaultPreSkinBaseVertexIndex = 0;
-
-	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || bCanUseGPUScene)
-	{
-		SCOPED_LOADTIMER(FLocalVertexFactory_InitRHI_CreateLocalVFUniformBuffer);
-		UniformBuffer = CreateXSPVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex, DefaultPreSkinBaseVertexIndex);
-	}
-
-	FXSPVertexFactoryLooseParameters LooseParameters;
-	LooseParameters.GPUSkinPassThroughPreviousPositionBuffer = GNullVertexBuffer.VertexBufferSRV;
-	LooseParametersUniformBuffer = TUniformBufferRef<FXSPVertexFactoryLooseParameters>::CreateUniformBufferImmediate(LooseParameters, UniformBuffer_MultiFrame);
-
-	check(IsValidRef(GetDeclaration()));
 }
 
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FXSPVertexFactory, SF_Vertex, FXSPVertexFactoryShaderParameters);
@@ -535,9 +588,8 @@ IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FXSPVertexFactory, SF_RayHitGroup, FXSPV
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FXSPVertexFactory, SF_Compute, FXSPVertexFactoryShaderParameters);
 #endif // RHI_RAYTRACING
 
-//IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Engine/Private/LocalVertexFactory.ush",
-IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Plugin/XSPLoader/XSPVertexFactory.ush",
-	EVertexFactoryFlags::UsedWithMaterials
+IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory,"/Engine/Private/LocalVertexFactory.ush",
+	  EVertexFactoryFlags::UsedWithMaterials
 	| EVertexFactoryFlags::SupportsStaticLighting
 	| EVertexFactoryFlags::SupportsDynamicLighting
 	| EVertexFactoryFlags::SupportsPrecisePrevWorldPos
@@ -550,4 +602,5 @@ IMPLEMENT_VERTEX_FACTORY_TYPE(FXSPVertexFactory, "/Plugin/XSPLoader/XSPVertexFac
 	| EVertexFactoryFlags::SupportsManualVertexFetch
 	| EVertexFactoryFlags::SupportsPSOPrecaching
 	| EVertexFactoryFlags::SupportsGPUSkinPassThrough
+	| EVertexFactoryFlags::SupportsLumenMeshCards
 );

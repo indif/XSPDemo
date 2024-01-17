@@ -1,14 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	XSPVertexFactory.ush: Local vertex factory shader code.
+	LocalVertexFactory.ush: Local vertex factory shader code.
 =============================================================================*/
 
-#include "/Engine/Private/VertexFactoryCommon.ush"
-#include "/Engine/Private/LocalVertexFactoryCommon.ush"
-#include "/Engine/Private/LightmapData.ush"
+#include "VertexFactoryCommon.ush"
+#include "LocalVertexFactoryCommon.ush"
+#include "LightmapData.ush"
 
-#include "/Engine/Private/GpuSkinCommon.ush"
+#include "GpuSkinCommon.ush"
 
 #include "/Engine/Generated/UniformBuffers/PrecomputedLightingBuffer.ush"
 
@@ -171,8 +171,6 @@ bool IsGPUSkinPassThrough()
 }
 
 #if RAYHITGROUPSHADER || COMPUTESHADER
-Buffer<float> GPUSkinCachePositionBuffer;
-
 uint GetNumRayTracingDynamicMeshVerticesIndirect()
 {
 	return 0;
@@ -213,7 +211,7 @@ FVertexFactoryInput LoadVertexFactoryInputForHGS(uint TriangleIndex, int VertexI
 #endif
 
 
-#if COMPUTESHADER
+#if COMPUTESHADER && MANUAL_VERTEX_FETCH
 
 FVertexFactoryInput LoadVertexFactoryInputForDynamicUpdate(uint TriangleIndex, int VertexIndex, uint PrimitiveId)
 {
@@ -221,11 +219,15 @@ FVertexFactoryInput LoadVertexFactoryInputForDynamicUpdate(uint TriangleIndex, i
 
 	if (IsGPUSkinPassThrough())
 	{
+		// GPUSkinPassThrough can change the PositionBuffer every frame but doesn't always update the corresponding 
+		// XSPVF.VertexFetch_PositionBuffer since it relies on fixed function vertex buffer fetch and so doesn't need
+		// to pay the cost of recreating the UniformBuffer.
+		// For the compute shader case we store the PositionBuffer SRV in the loose uniform buffer.
 		Input.VertexId = TriangleIndex * 3 + VertexIndex;
 		uint VertexOffset = XSPVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId;
-		Input.Position.x = GPUSkinCachePositionBuffer[VertexOffset * 3 + 0];
-		Input.Position.y = GPUSkinCachePositionBuffer[VertexOffset * 3 + 1];
-		Input.Position.z = GPUSkinCachePositionBuffer[VertexOffset * 3 + 2];
+		Input.Position.x = XSPVFLooseParameters.GPUSkinPassThroughPositionBuffer[VertexOffset * 3 + 0];
+		Input.Position.y = XSPVFLooseParameters.GPUSkinPassThroughPositionBuffer[VertexOffset * 3 + 1];
+		Input.Position.z = XSPVFLooseParameters.GPUSkinPassThroughPositionBuffer[VertexOffset * 3 + 2];
 	}
 	else
 	{
@@ -239,6 +241,10 @@ FVertexFactoryInput LoadVertexFactoryInputForDynamicUpdate(uint TriangleIndex, i
 	}
 
 	VF_GPUSCENE_SET_INPUT_FOR_RT(Input, PrimitiveId, 0U);
+
+#if USE_SPLINEDEFORM
+	Input.Position.w = 1.0;
+#endif
 
 	return Input;
 }
@@ -769,7 +775,9 @@ float4 CalcWorldPosition(float4 Position, FLWCMatrix LocalToWorld)
 {
 #if USE_INSTANCING
 	return TransformLocalToTranslatedWorld(mul(Position, InstanceTransform).xyz, LocalToWorld);
-#elif USE_SPLINEDEFORM
+#elif USE_SPLINEDEFORM && !RAYHITGROUPSHADER
+	// NOTE: The #if above does not include raytracing shaders because the cached position already
+	// has the spline deformation baked in.
 /*
 	// Make transform for this point along spline
 	float4x3 SliceTransform = CalcSliceTransform(dot(Position.xyz, SplineMeshDir));
@@ -802,15 +810,23 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input, inout float TangentSign)
 		TangentX = TangentBias(TangentInputX);
 		TangentZ = TangentBias(TangentInputZ);
 	}
-	
-	//RLW
-    TangentX = half3(0,0,0);
 
 	TangentSign = TangentZ.w;
 
 #if USE_SPLINEDEFORM
 	// Make slice rotation matrix, and use that to transform tangents
-	half3x3 SliceRot = CalcSliceRot(dot(Input.Position.xyz, SplineMeshDir));
+#if RAYHITGROUPSHADER
+	// When raytracing, Input.Position already has the spline deformation baked in, so we need to
+	// go back to the original vertex buffer to compute the SliceRot matrix.
+	uint VertexOffset = XSPVF.VertexFetch_Parameters[VF_VertexOffset] + Input.VertexId * 3;
+	float3 SliceInputPos = 0;
+	SliceInputPos.x = XSPVF.VertexFetch_PositionBuffer[VertexOffset + 0];
+	SliceInputPos.y = XSPVF.VertexFetch_PositionBuffer[VertexOffset + 1];
+	SliceInputPos.z = XSPVF.VertexFetch_PositionBuffer[VertexOffset + 2];
+#else
+	float3 SliceInputPos = Input.Position.xyz;
+#endif
+	half3x3 SliceRot = CalcSliceRot(dot(SliceInputPos.xyz, SplineMeshDir));
 
 	TangentX = mul(TangentX, SliceRot);
 	TangentZ.xyz = mul(TangentZ.xyz, SliceRot);
@@ -1153,34 +1169,35 @@ float3 VertexFactoryGetWorldNormal(FVertexFactoryInput Input, FVertexFactoryInte
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
 	FLWCMatrix PreviousLocalToWorld = GetInstanceData(Intermediates).PrevLocalToWorld;
+	float4 PrevLocalPosition = Input.Position;
 
-	float4 PrevLocalPosition;
 #if SUPPORT_GPUSKIN_PASSTHROUGH
 	if (IsGPUSkinPassThrough())
 	{
-		uint Offset = Input.VertexId * 3;
-		float3 PreviousPos;
-		PreviousPos.x = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 0];
-		PreviousPos.y = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 1];
-		PreviousPos.z = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 2];
-		PrevLocalPosition = float4(PreviousPos, 1);	
+		// Duplicates logic in FGPUSkinVertexFactoryShaderParameters::GetElementShaderBindings().
+		if (ResolvedView.FrameNumber == XSPVFLooseParameters.FrameNumber && ResolvedView.WorldIsPaused == 0)
+		{
+			uint Offset = Input.VertexId * 3;
+			float3 PreviousPos;
+			PreviousPos.x = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 0];
+			PreviousPos.y = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 1];
+			PreviousPos.z = XSPVFLooseParameters.GPUSkinPassThroughPreviousPositionBuffer[Offset + 2];
+			PrevLocalPosition = float4(PreviousPos, 1);	
+		}
 	}
 	else
 #endif // SUPPORT_GPUSKIN_PASSTHROUGH
 	{
-	#if USE_INSTANCING
+#if USE_INSTANCING
 		float4x4 InstanceTransform = GetInstancePrevTransform(Intermediates);
 		PrevLocalPosition = mul(Input.Position, InstanceTransform);
-#elif USE_SPLINEDEFORM
-	// Just like CalcWorldPosition...
-	float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir));
-
-	// Transform into mesh space
+#elif USE_SPLINEDEFORM && !RAYHITGROUPSHADER
+		// Just like CalcWorldPosition...
+		float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir));
+		// Transform into mesh space
 		PrevLocalPosition = float4(mul(Input.Position, SliceTransform), Input.Position.w);
-#else
-		PrevLocalPosition = Input.Position;
-#endif	// USE_INSTANCING
-}
+#endif
+	}
 
 	return TransformPreviousLocalPositionToTranslatedWorld(PrevLocalPosition.xyz, PreviousLocalToWorld);
 }
@@ -1294,4 +1311,4 @@ uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 	return GetPrimitiveId(Interpolants);
 }
 
-#include "/Engine/Private/VertexFactoryDefaultInterface.ush"
+#include "VertexFactoryDefaultInterface.ush"
