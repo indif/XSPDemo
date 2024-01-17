@@ -476,7 +476,7 @@ void FXSPVertexFactory::InitRHI()
 		{
 			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
 
-			Data.TextureCoordinatesSRV = GNullColorVertexBuffer.VertexBufferSRV;
+			//Data.TextureCoordinatesSRV = GNullColorVertexBuffer.VertexBufferSRV;
 
 			const int32 BaseTexCoordAttribute = 4;
 			for (int32 CoordinateIndex = 0; CoordinateIndex < MAX_STATIC_TEXCOORDS / 2; ++CoordinateIndex)

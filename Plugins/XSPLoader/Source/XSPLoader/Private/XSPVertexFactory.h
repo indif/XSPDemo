@@ -119,17 +119,17 @@ public:
 
 	inline FRHIShaderResourceView* GetTextureCoordinatesSRV() const
 	{
-		return Data.TextureCoordinatesSRV;
+		return GNullColorVertexBuffer.VertexBufferSRV.GetReference();//Data.TextureCoordinatesSRV;
 	}
 
 	inline FRHIShaderResourceView* GetColorComponentsSRV() const
 	{
-		return Data.ColorComponentsSRV;
+		return GNullColorVertexBuffer.VertexBufferSRV.GetReference();//Data.ColorComponentsSRV;
 	}
 
 	inline const uint32 GetColorIndexMask() const
 	{
-		return Data.ColorIndexMask;
+		return 0;//Data.ColorIndexMask;
 	}
 
 	inline const int GetLightMapCoordinateIndex() const
