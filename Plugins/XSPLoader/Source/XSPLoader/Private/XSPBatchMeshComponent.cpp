@@ -243,7 +243,6 @@ void UXSPBatchMeshComponent::BuildPhysicsData(bool bAsync)
         BuildingBodySetup->CreatePhysicsMeshes();
         MeshBodySetup = BuildingBodySetup;
         BuildingBodySetup = nullptr;
-        RecreatePhysicsState();
         INC_DWORD_STAT(STAT_XSPLoader_NumCreatedPhysicsState);
     }
 }

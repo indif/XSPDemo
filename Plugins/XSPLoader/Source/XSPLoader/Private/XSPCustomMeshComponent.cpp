@@ -317,14 +317,14 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
 
     CustomMesh = MakeShareable(new FXSPCustomMesh(GMaxRHIFeatureLevel));
 
-    TArray<FStaticMeshBuildVertex> StaticMeshBuildVertices;
-    StaticMeshBuildVertices.SetNum(NumVerticesTotal);
     TArray<uint32> IndexArray;
     IndexArray.SetNum(NumVerticesTotal);
 
     CustomMesh->PositionVertexBuffer.Init(NumVerticesTotal, false);
     void* PositionData = CustomMesh->PositionVertexBuffer.GetVertexData();
     uint32 PositionStride = CustomMesh->PositionVertexBuffer.GetStride();
+
+    CustomMesh->StaticMeshVertexBuffer.Init(NumVerticesTotal, 0, false);
 
     FBox3f BoundingBox;
     BoundingBox.Init();
@@ -335,22 +335,19 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
 
         FMemory::Memcpy(&((uint8*)PositionData)[Offset * PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
+        Offset += NumVertices;
 
         for (int32 i = 0; i < NumVertices; i++)
         {
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
 
-            StaticMeshBuildVertices[Index].TangentZ = NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f();
+            CustomMesh->StaticMeshVertexBuffer.SetVertexTangents(Index, FVector3f::ZeroVector, FVector3f::ZeroVector, NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f());
 
             IndexArray[Index] = Index;
-
             Index++;
         }
 
-        Offset += NumVertices;
     }
-
-    CustomMesh->StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, 0, false);
     CustomMesh->IndexBuffer.SetIndices(IndexArray, (IndexArray.Num() <= (int32)MAX_uint16 + 1) ? EIndexBufferStride::Type::Force16Bit : EIndexBufferStride::Type::Force32Bit);
     
     CustomMesh->InitResources();
@@ -397,7 +394,6 @@ void UXSPCustomMeshComponent::BuildPhysicsData(bool bAsync)
         BuildingBodySetup->CreatePhysicsMeshes();
         MeshBodySetup = BuildingBodySetup;
         BuildingBodySetup = nullptr;
-        RecreatePhysicsState();
         INC_DWORD_STAT(STAT_XSPLoader_NumCreatedPhysicsState);
     }
 }
