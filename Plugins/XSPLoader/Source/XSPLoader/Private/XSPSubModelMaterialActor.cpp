@@ -12,53 +12,45 @@ extern int32 XSPMinNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesUnbatch;
 
 
-AXSPSubModelMaterialActor::AXSPSubModelMaterialActor()
+FXSPSubModelMaterialActor::FXSPSubModelMaterialActor()
 {
-    PrimaryActorTick.bCanEverTick = false;
-    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+    INC_DWORD_STAT(STAT_XSPLoader_NumSubMaterialActor);
 }
 
-AXSPSubModelMaterialActor::~AXSPSubModelMaterialActor()
+FXSPSubModelMaterialActor::~FXSPSubModelMaterialActor()
 {
     DEC_DWORD_STAT(STAT_XSPLoader_NumSubMaterialActor);
 }
 
-void AXSPSubModelMaterialActor::Init(AXSPSubModelActor* InParent, UMaterialInstanceDynamic* Material, int32 InCustomDepthStencilValue, bool bInRenderInMainAndDepthPass)
+void FXSPSubModelMaterialActor::Init(AXSPModelActor* InOwner, UMaterialInstanceDynamic* Material, int32 InCustomDepthStencilValue, bool bInRenderInMainAndDepthPass)
 {
-    Parent = InParent;
+    Owner = InOwner;
     MaterialInstanceDynamic = Material;
     CustomDepthStencilValue = InCustomDepthStencilValue;
     bRenderInMainAndDepthPass = bInRenderInMainAndDepthPass;
-
-    INC_DWORD_STAT(STAT_XSPLoader_NumSubMaterialActor);
 }
 
-void AXSPSubModelMaterialActor::AddNode(int32 Dbid)
+void FXSPSubModelMaterialActor::AddNode(int32 Dbid)
 {
     NodeToAddArray.Add(Dbid);
 }
 
-void AXSPSubModelMaterialActor::AddNode(const TArray<int32>& InNodeArray)
+void FXSPSubModelMaterialActor::AddNode(const TArray<int32>& InNodeArray)
 {
     NodeToAddArray.Append(InNodeArray);
 }
 
-void AXSPSubModelMaterialActor::RemoveNode(int32 Dbid)
+void FXSPSubModelMaterialActor::RemoveNode(int32 Dbid)
 {
     NodeToRemoveArray.Add(Dbid);
 }
 
-void AXSPSubModelMaterialActor::RemoveNode(const TArray<int32>& InNodeArray)
+void FXSPSubModelMaterialActor::RemoveNode(const TArray<int32>& InNodeArray)
 {
     NodeToRemoveArray.Append(InNodeArray);
 }
 
-const TArray<struct FXSPNodeData*>& AXSPSubModelMaterialActor::GetNodeDataArray() const
-{
-    return Parent->GetNodeDataArray();
-}
-
-bool AXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
+bool FXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
 {
     int64 BeginTicks = FDateTime::Now().GetTicks();
 
@@ -74,7 +66,7 @@ bool AXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAs
     return bFinished;
 }
 
-bool AXSPSubModelMaterialActor::PreProcess()
+bool FXSPSubModelMaterialActor::PreProcess()
 {
     TArray<UPrimitiveComponent*> ComponentsToRelease;
 
@@ -137,11 +129,11 @@ bool AXSPSubModelMaterialActor::PreProcess()
     return !NodeToBuildArray.IsEmpty();
 }
 
-void AXSPSubModelMaterialActor::ProcessBatch(bool bAsyncBuild)
+void FXSPSubModelMaterialActor::ProcessBatch(bool bAsyncBuild)
 {
     int32 NumBatchedVertices = 0;
     TArray<int32> BatchNodeArray;
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = Owner->GetNodeDataArray();
     for (int32 Dbid : NodeToBuildArray)
     {
         int32 NodeVertexNum = NodeDataArray[Dbid]->MeshPositionArray.Num();
@@ -169,11 +161,11 @@ void AXSPSubModelMaterialActor::ProcessBatch(bool bAsyncBuild)
     NodeToBuildArray.Reset();
 }
 
-bool AXSPSubModelMaterialActor::ProcessRegister()
+bool FXSPSubModelMaterialActor::ProcessRegister()
 {
-    for (TArray<UPrimitiveComponent*>::TIterator Itr(BuildingComponentArray); Itr; ++Itr)
+    for (TArray<TStrongObjectPtr<UPrimitiveComponent>>::TIterator Itr(BuildingComponentArray); Itr; ++Itr)
     {
-        MyComponentClass* Component = Cast<MyComponentClass>(*Itr);
+        MyComponentClass* Component = Cast<MyComponentClass>(Itr->Get());
         if (Component->TryFinishBuildMesh())
         {
             if (BatchMeshComponentArray.Contains(Component))
@@ -187,9 +179,9 @@ bool AXSPSubModelMaterialActor::ProcessRegister()
     return BuildingComponentArray.IsEmpty();
 }
 
-void AXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild)
+void FXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild)
 {
-    MyComponentClass* Component = NewObject<MyComponentClass>(this);
+    MyComponentClass* Component = NewObject<MyComponentClass>(Owner);
     for (int32 Dbid : DbidArray)
     {
         NodeComponentMap[Dbid] = Component;
@@ -203,10 +195,10 @@ void AXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, boo
     Component->SetRenderCustomDepth(CustomDepthStencilValue >= 0);
     Component->SetCustomDepthStencilValue(CustomDepthStencilValue);
 
-    Component->Init(this, DbidArray, bAsyncBuild);
+    Component->Init(Owner, DbidArray, bAsyncBuild);
     if (bAsyncBuild)
     {
-        BuildingComponentArray.Add(Component);
+        BuildingComponentArray.Add(TStrongObjectPtr<UPrimitiveComponent>(Component));
     }
     else
     {
@@ -214,7 +206,7 @@ void AXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, boo
     }
 }
 
-void AXSPSubModelMaterialActor::ReleaseComponent(UPrimitiveComponent* Component)
+void FXSPSubModelMaterialActor::ReleaseComponent(UPrimitiveComponent* Component)
 {
     MyComponentClass* XSPCustomMeshComponent = Cast<MyComponentClass>(Component);
     const TArray<int32>& NodeIdArray = XSPCustomMeshComponent->GetNodes();
@@ -226,16 +218,16 @@ void AXSPSubModelMaterialActor::ReleaseComponent(UPrimitiveComponent* Component)
         }
     }
 
-    if (!BuildingComponentArray.Contains(Component))
+    //if (!BuildingComponentArray.Contains(Component))
     {
         Component->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
         Component->DestroyComponent();
     }
 }
 
-void AXSPSubModelMaterialActor::RegisterComponent(UPrimitiveComponent* Component)
+void FXSPSubModelMaterialActor::RegisterComponent(UPrimitiveComponent* Component)
 {
-    Component->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+    Component->AttachToComponent(Owner->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 
     int64 TicksBeforeRegisterComponent = FDateTime::Now().GetTicks();
     Component->RegisterComponent();

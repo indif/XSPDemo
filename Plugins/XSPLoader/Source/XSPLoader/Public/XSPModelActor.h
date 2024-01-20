@@ -4,6 +4,9 @@
 #include "GameFramework/Actor.h"
 #include "XSPModelActor.generated.h"
 
+struct FXSPNodeData;
+class FXSPFileReader;
+class FXSPSubModelActor;
 
 UCLASS()
 class XSPLOADER_API AXSPModelActor : public AActor
@@ -71,11 +74,10 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-private:
-	friend class AXSPSubModelActor;
-	inline const TArray<struct FXSPNodeData*>& GetNodeDataArray() const { return NodeDataArray; }
+	inline const TArray<FXSPNodeData*>& GetNodeDataArray() const { return NodeDataArray; }
 	UMaterialInstanceDynamic* CreateMaterialInstanceDynamic(const FLinearColor& BaseColor, float Roughness, const FLinearColor& EmissiveColor);
 
+private:
 	bool LoadToDynamicCombinedMesh(const TArray<FString>& FilePathNameArray);
 	void TickDynamicCombine(float AvailableSeconds);
 	bool FinishLoadNodeData();
@@ -83,7 +85,7 @@ private:
 	void InitSubModelActors();
 	bool UpdateOperation();
 
-	class AXSPSubModelActor* GetSubModelActor(int32 Dbid);
+	FXSPSubModelActor* GetSubModelActor(int32 Dbid);
 	TArray<int32> GetSubArray(const TArray<int32>& DbidArray, int32 Start, int32 Num);
 
 private:
@@ -93,14 +95,13 @@ private:
 	UPROPERTY()
 	UMaterialInterface* SourceMaterialTranslucent = nullptr;
 
-	UPROPERTY()
-	TMap<int32, class AXSPSubModelActor*> SubModelActorMap;
+	TMap<int32, TSharedPtr<FXSPSubModelActor>> SubModelActorMap;
 
 	bool bAsyncBuildWhenInitLoading = true;
 
-	TArray<TSharedPtr<class FXSPFileReader>> FileReaderArray;
+	TArray<TSharedPtr<FXSPFileReader>> FileReaderArray;
 
-	TArray<struct FXSPNodeData*> NodeDataArray;
+	TArray<FXSPNodeData*> NodeDataArray;
 	TArray<int32> LevelOneNodeIdArray;
 	TArray<int32> LeafNodeIdArray;
 	int32 NumVerticesTotal = 0;

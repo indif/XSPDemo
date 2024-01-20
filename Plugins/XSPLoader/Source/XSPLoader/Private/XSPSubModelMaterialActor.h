@@ -1,19 +1,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
-#include "XSPSubModelMaterialActor.generated.h"
 
-UCLASS()
-class AXSPSubModelMaterialActor : public AActor
+class AXSPModelActor;
+
+class FXSPSubModelMaterialActor
 {
-    GENERATED_BODY()
-
 public:
-    AXSPSubModelMaterialActor();
-    virtual ~AXSPSubModelMaterialActor();
+    FXSPSubModelMaterialActor();
+    virtual ~FXSPSubModelMaterialActor();
 
-    void Init(class AXSPSubModelActor* Parent, UMaterialInstanceDynamic* Material, int32 CustomDepthStencilValue, bool bRenderInMainAndDepthPass);
+    void Init(AXSPModelActor* Owner, UMaterialInstanceDynamic* Material, int32 CustomDepthStencilValue, bool bRenderInMainAndDepthPass);
 
     void AddNode(int32 Dbid);
 
@@ -22,8 +19,6 @@ public:
     void RemoveNode(int32 Dbid);
 
     void RemoveNode(const TArray<int32>& NodeArray);
-
-    const TArray<struct FXSPNodeData*>& GetNodeDataArray() const;
 
     bool TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild);
 
@@ -36,9 +31,8 @@ private:
     void RegisterComponent(UPrimitiveComponent* Component);
 
 private:
-    class AXSPSubModelActor* Parent;
+    AXSPModelActor* Owner;
 
-    UPROPERTY()
     UMaterialInstanceDynamic* MaterialInstanceDynamic = nullptr;
 
     int32 CustomDepthStencilValue = -1;
@@ -58,6 +52,5 @@ private:
     TArray<UPrimitiveComponent*> BatchMeshComponentArray;
 
     //尚在异步构建中的Component的数组
-    UPROPERTY()
-    TArray<UPrimitiveComponent*> BuildingComponentArray;
+    TArray<TStrongObjectPtr<UPrimitiveComponent>> BuildingComponentArray;
 };

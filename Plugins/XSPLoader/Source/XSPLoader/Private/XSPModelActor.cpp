@@ -117,7 +117,7 @@ void AXSPModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthSt
     }
     else
     {
-        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        FXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
         if (nullptr != XSPSubModelActor)
         {
             XSPSubModelActor->SetRenderCustomDepthStencil(Dbid, CustomDepthStencilValue);
@@ -152,7 +152,7 @@ void AXSPModelActor::ClearRenderCustomDepthStencil(int32 Dbid)
     }
     else
     {
-        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        FXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
         if (nullptr != XSPSubModelActor)
         {
             XSPSubModelActor->ClearRenderCustomDepthStencil(Dbid);
@@ -184,7 +184,7 @@ void AXSPModelActor::SetVisibility(int32 Dbid, bool bVisible)
     }
     else
     {
-        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        FXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
         if (nullptr != XSPSubModelActor)
         {
             XSPSubModelActor->SetVisibility(Dbid, bVisible);
@@ -219,7 +219,7 @@ void AXSPModelActor::SetRenderColor(int32 Dbid, const FLinearColor& Color)
     }
     else
     {
-        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        FXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
         if (nullptr != XSPSubModelActor)
         {
             XSPSubModelActor->SetRenderColor(Dbid, Color);
@@ -254,7 +254,7 @@ void AXSPModelActor::ClearRenderColor(int32 Dbid)
     }
     else
     {
-        AXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
+        FXSPSubModelActor* XSPSubModelActor = GetSubModelActor(Dbid);
         if (nullptr != XSPSubModelActor)
         {
             XSPSubModelActor->ClearRenderColor(Dbid);
@@ -444,9 +444,8 @@ void AXSPModelActor::InitSubModelActors()
 {
     for (int32 Dbid : LevelOneNodeIdArray)
     {
-        AXSPSubModelActor* Actor = NewObject<AXSPSubModelActor>(this);
+        TSharedPtr<FXSPSubModelActor> Actor = MakeShareable(new FXSPSubModelActor);
         Actor->Init(this, Dbid, NodeDataArray[Dbid]->NumChildren);
-        Actor->AttachToActor(this, FAttachmentTransformRules::KeepRelativeTransform);
         SubModelActorMap.Add(Dbid, Actor);
     }
 }
@@ -466,14 +465,14 @@ bool AXSPModelActor::UpdateOperation()
     return true;
 }
 
-AXSPSubModelActor* AXSPModelActor::GetSubModelActor(int32 Dbid)
+FXSPSubModelActor* AXSPModelActor::GetSubModelActor(int32 Dbid)
 {
     for (auto Pair : SubModelActorMap)
     {
         int32 RootDbid = Pair.Key;
         if (Dbid >= Pair.Key && Dbid < Pair.Key + NodeDataArray[Pair.Key]->NumChildren)
         {
-            return Pair.Value;
+            return Pair.Value.Get();
         }
     }
     return nullptr;

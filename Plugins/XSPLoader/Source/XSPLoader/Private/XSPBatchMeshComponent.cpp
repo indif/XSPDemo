@@ -1,5 +1,5 @@
 #include "XSPBatchMeshComponent.h"
-#include "XSPSubModelMaterialActor.h"
+#include "XSPModelActor.h"
 #include "XSPDataStruct.h"
 #include "XSPStat.h"
 #include "MeshUtils.h"
@@ -39,9 +39,9 @@ UXSPBatchMeshComponent::~UXSPBatchMeshComponent()
     DEC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
 }
 
-void UXSPBatchMeshComponent::Init(AXSPSubModelMaterialActor* InParent, const TArray<int32>& InDbidArray, bool bAsyncBuild)
+void UXSPBatchMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<int32>& InDbidArray, bool bAsyncBuild)
 {
-    Parent = InParent;
+    OwnerActor = InOwnerActor;
     DbidArray = InDbidArray;
     NumVerticesTotal = 0;
 
@@ -122,7 +122,7 @@ bool UXSPBatchMeshComponent::GetPhysicsTriMeshData(FTriMeshCollisionData* Collis
     CollisionData->Vertices.SetNum(NumVerticesTotal);
     CollisionData->Indices.SetNum(NumVerticesTotal / 3);
 
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     int32 VerticesIndex = 0, IndicesIndex = 0;
     int32 VertexBase = 0;
     for (int32 Dbid : DbidArray)
@@ -154,7 +154,7 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
 {
     int64 Ticks1 = FDateTime::Now().GetTicks();
 
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     for (int32 Dbid : DbidArray)
     {
         NumVerticesTotal += NodeDataArray[Dbid]->MeshPositionArray.Num();

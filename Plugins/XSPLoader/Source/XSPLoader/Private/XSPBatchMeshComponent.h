@@ -4,6 +4,8 @@
 #include "GameFramework/Actor.h"
 #include "XSPBatchMeshComponent.generated.h"
 
+class AXSPModelActor;
+
 UCLASS()
 class UXSPBatchMeshComponent : public UStaticMeshComponent, public IInterface_CollisionDataProvider
 {
@@ -13,7 +15,7 @@ public:
     UXSPBatchMeshComponent();
     virtual ~UXSPBatchMeshComponent();
 
-    void Init(class AXSPSubModelMaterialActor* Parent, const TArray<int32>& DbidArray, bool bAsyncBuild);
+    void Init(AXSPModelActor* OwnerActor, const TArray<int32>& DbidArray, bool bAsyncBuild);
 
     const TArray<int32>& GetNodes() const;
 
@@ -41,7 +43,7 @@ private:
     void FinishPhysicsAsyncCook(bool bSuccess);
 
 private:
-    class AXSPSubModelMaterialActor* Parent = nullptr;
+    AXSPModelActor* OwnerActor = nullptr;
 
     //包含的所有叶子节点
     TArray<int32> DbidArray;

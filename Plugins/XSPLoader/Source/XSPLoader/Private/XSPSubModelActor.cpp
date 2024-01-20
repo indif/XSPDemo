@@ -4,24 +4,23 @@
 #include "XSPSubModelMaterialActor.h"
 #include "XSPStat.h"
 
-AXSPSubModelActor::AXSPSubModelActor()
+FXSPSubModelActor::FXSPSubModelActor()
 {
-    PrimaryActorTick.bCanEverTick = true;
-    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+    INC_DWORD_STAT(STAT_XSPLoader_NumSubActor);
 }
 
-AXSPSubModelActor::~AXSPSubModelActor()
+FXSPSubModelActor::~FXSPSubModelActor()
 {
     DEC_DWORD_STAT(STAT_XSPLoader_NumSubActor);
 }
 
-void AXSPSubModelActor::Init(AXSPModelActor* InParent, int32 Dbid, int32 Num)
+void FXSPSubModelActor::Init(AXSPModelActor* InOwner, int32 Dbid, int32 Num)
 {
-    Parent = InParent;
+    Owner = InOwner;
     StartDbid = Dbid;
     NumNodes = Num;
 
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = Owner->GetNodeDataArray();
     TMap<FLinearColor, TArray<int32>> MaterialNodesMap;
     for (int32 Index = 0; Index < Num; Index++)
     {
@@ -38,21 +37,19 @@ void AXSPSubModelActor::Init(AXSPModelActor* InParent, int32 Dbid, int32 Num)
     {
         GetOrCreateMaterialActor(Pair.Key)->AddNode(MoveTemp(Pair.Value));
     }
-
-    INC_DWORD_STAT(STAT_XSPLoader_NumSubActor);
 }
 
-void AXSPSubModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthStencilValue)
+void FXSPSubModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthStencilValue)
 {
     GetOrCreateStencilActor(CustomDepthStencilValue)->AddNode(GetChildLeafNodeArray(Dbid));
 }
 
-void AXSPSubModelActor::SetRenderCustomDepthStencil(const TArray<int32>& DbidArray, int32 CustomDepthStencilValue)
+void FXSPSubModelActor::SetRenderCustomDepthStencil(const TArray<int32>& DbidArray, int32 CustomDepthStencilValue)
 {
     GetOrCreateStencilActor(CustomDepthStencilValue)->AddNode(GetChildLeafNodeArray(DbidArray));
 }
 
-void AXSPSubModelActor::ClearRenderCustomDepthStencil(int32 Dbid)
+void FXSPSubModelActor::ClearRenderCustomDepthStencil(int32 Dbid)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
     for (auto Pair : CustomStencilActorMap)
@@ -61,7 +58,7 @@ void AXSPSubModelActor::ClearRenderCustomDepthStencil(int32 Dbid)
     }
 }
 
-void AXSPSubModelActor::ClearRenderCustomDepthStencil(const TArray<int32>& DbidArray)
+void FXSPSubModelActor::ClearRenderCustomDepthStencil(const TArray<int32>& DbidArray)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(DbidArray);
     for (auto Pair : CustomStencilActorMap)
@@ -70,23 +67,16 @@ void AXSPSubModelActor::ClearRenderCustomDepthStencil(const TArray<int32>& DbidA
     }
 }
 
-void AXSPSubModelActor::SetVisibility(int32 Dbid, bool bVisible)
+void FXSPSubModelActor::SetVisibility(int32 Dbid, bool bVisible)
 {
-    if (Dbid == StartDbid)
+    TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
+    for (int32 LeafNodeDbid : ChildLeafNodeArray)
     {
-        GetRootComponent()->SetVisibility(bVisible, true);
-    }
-    else
-    {
-        TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
-        for (int32 LeafNodeDbid : ChildLeafNodeArray)
-        {
-            SetLeafNodeVisibility(LeafNodeDbid, bVisible);
-        }
+        SetLeafNodeVisibility(LeafNodeDbid, bVisible);
     }
 }
 
-void AXSPSubModelActor::SetVisibility(const TArray<int32>& DbidArray, bool bVisible)
+void FXSPSubModelActor::SetVisibility(const TArray<int32>& DbidArray, bool bVisible)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(DbidArray);
     for (int32 LeafNodeDbid : ChildLeafNodeArray)
@@ -95,7 +85,7 @@ void AXSPSubModelActor::SetVisibility(const TArray<int32>& DbidArray, bool bVisi
     }
 }
 
-void AXSPSubModelActor::SetRenderColor(int32 Dbid, const FLinearColor& Color)
+void FXSPSubModelActor::SetRenderColor(int32 Dbid, const FLinearColor& Color)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
     GetOrCreateHighlightActor(Color)->AddNode(ChildLeafNodeArray);
@@ -106,7 +96,7 @@ void AXSPSubModelActor::SetRenderColor(int32 Dbid, const FLinearColor& Color)
     }
 }
 
-void AXSPSubModelActor::SetRenderColor(const TArray<int32>& DbidArray, const FLinearColor& Color)
+void FXSPSubModelActor::SetRenderColor(const TArray<int32>& DbidArray, const FLinearColor& Color)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(DbidArray);
     GetOrCreateHighlightActor(Color)->AddNode(ChildLeafNodeArray);
@@ -117,7 +107,7 @@ void AXSPSubModelActor::SetRenderColor(const TArray<int32>& DbidArray, const FLi
     }
 }
 
-void AXSPSubModelActor::ClearRenderColor(int32 Dbid)
+void FXSPSubModelActor::ClearRenderColor(int32 Dbid)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(Dbid);
     for (auto Pair : HighlightActorMap)
@@ -131,7 +121,7 @@ void AXSPSubModelActor::ClearRenderColor(int32 Dbid)
     }
 }
 
-void AXSPSubModelActor::ClearRenderColor(const TArray<int32>& DbidArray)
+void FXSPSubModelActor::ClearRenderColor(const TArray<int32>& DbidArray)
 {
     TArray<int32> ChildLeafNodeArray = GetChildLeafNodeArray(DbidArray);
     for (auto Pair : HighlightActorMap)
@@ -145,12 +135,7 @@ void AXSPSubModelActor::ClearRenderColor(const TArray<int32>& DbidArray)
     }
 }
 
-const TArray<struct FXSPNodeData*>& AXSPSubModelActor::GetNodeDataArray() const
-{
-    return Parent->GetNodeDataArray();
-}
-
-bool AXSPSubModelActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
+bool FXSPSubModelActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild)
 {
     bool bFinished = true;
 
@@ -190,48 +175,45 @@ bool AXSPSubModelActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild
     return bFinished;
 }
 
-AXSPSubModelMaterialActor* AXSPSubModelActor::GetOrCreateMaterialActor(const FLinearColor& Material)
+FXSPSubModelMaterialActor* FXSPSubModelActor::GetOrCreateMaterialActor(const FLinearColor& Material)
 {
-    AXSPSubModelMaterialActor* const* Found = MaterialActorMap.Find(Material);
+    TSharedPtr<FXSPSubModelMaterialActor>* Found = MaterialActorMap.Find(Material);
     if (Found)
-        return *Found;
+        return Found->Get();
 
-    AXSPSubModelMaterialActor* Actor = NewObject<AXSPSubModelMaterialActor>(this);
-    Actor->Init(this, Parent->CreateMaterialInstanceDynamic(Material, Material.A, FLinearColor::Black), -1, true);
-    Actor->AttachToActor(this, FAttachmentTransformRules::KeepRelativeTransform);
+    TSharedPtr<FXSPSubModelMaterialActor> Actor = MakeShareable(new FXSPSubModelMaterialActor);
+    Actor->Init(Owner, Owner->CreateMaterialInstanceDynamic(Material, Material.A, FLinearColor::Black), -1, true);
     MaterialActorMap.Add(Material, Actor);
-    return Actor;
+    return Actor.Get();
 }
 
-AXSPSubModelMaterialActor* AXSPSubModelActor::GetOrCreateStencilActor(int32 CustomDepthStencilValue)
+FXSPSubModelMaterialActor* FXSPSubModelActor::GetOrCreateStencilActor(int32 CustomDepthStencilValue)
 {
-    AXSPSubModelMaterialActor* const* Found = CustomStencilActorMap.Find(CustomDepthStencilValue);
+    TSharedPtr<FXSPSubModelMaterialActor>* Found = CustomStencilActorMap.Find(CustomDepthStencilValue);
     if (Found)
-        return *Found;
+        return Found->Get();
 
-    AXSPSubModelMaterialActor* Actor = NewObject<AXSPSubModelMaterialActor>(this);
-    Actor->Init(this, Parent->CreateMaterialInstanceDynamic(FLinearColor::White, 0, FLinearColor::Black), CustomDepthStencilValue, false);
-    Actor->AttachToActor(this, FAttachmentTransformRules::KeepRelativeTransform);
+    TSharedPtr<FXSPSubModelMaterialActor> Actor = MakeShareable(new FXSPSubModelMaterialActor);
+    Actor->Init(Owner, Owner->CreateMaterialInstanceDynamic(FLinearColor::White, 0, FLinearColor::Black), CustomDepthStencilValue, false);
     CustomStencilActorMap.Add(CustomDepthStencilValue, Actor);
-    return Actor;
+    return Actor.Get();
 }
 
-AXSPSubModelMaterialActor* AXSPSubModelActor::GetOrCreateHighlightActor(const FLinearColor& Color)
+FXSPSubModelMaterialActor* FXSPSubModelActor::GetOrCreateHighlightActor(const FLinearColor& Color)
 {
-    AXSPSubModelMaterialActor* const* Found = HighlightActorMap.Find(Color);
+    TSharedPtr<FXSPSubModelMaterialActor>* Found = HighlightActorMap.Find(Color);
     if (Found)
-        return *Found;
+        return Found->Get();
 
-    AXSPSubModelMaterialActor* Actor = NewObject<AXSPSubModelMaterialActor>(this);
-    Actor->Init(this, Parent->CreateMaterialInstanceDynamic(Color, 1, Color), -1, true);
-    Actor->AttachToActor(this, FAttachmentTransformRules::KeepRelativeTransform);
+    TSharedPtr<FXSPSubModelMaterialActor> Actor = MakeShareable(new FXSPSubModelMaterialActor);
+    Actor->Init(Owner, Owner->CreateMaterialInstanceDynamic(Color, 1, Color), -1, true);
     HighlightActorMap.Add(Color, Actor);
-    return Actor;
+    return Actor.Get();
 }
 
-TArray<int32> AXSPSubModelActor::GetChildLeafNodeArray(int32 Dbid)
+TArray<int32> FXSPSubModelActor::GetChildLeafNodeArray(int32 Dbid)
 {
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = Owner->GetNodeDataArray();
     TArray<int32> ChildLeafNodeArray;
     for (int32 Index = 0; Index < NodeDataArray[Dbid]->NumChildren; Index++)
     {
@@ -244,9 +226,9 @@ TArray<int32> AXSPSubModelActor::GetChildLeafNodeArray(int32 Dbid)
     return MoveTemp(ChildLeafNodeArray);
 }
 
-TArray<int32> AXSPSubModelActor::GetChildLeafNodeArray(const TArray<int32>& DbidArray)
+TArray<int32> FXSPSubModelActor::GetChildLeafNodeArray(const TArray<int32>& DbidArray)
 {
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
+    const TArray<FXSPNodeData*>& NodeDataArray = Owner->GetNodeDataArray();
     TArray<int32> ChildLeafNodeArray;
     for (int32 Dbid : DbidArray)
     {
@@ -263,10 +245,10 @@ TArray<int32> AXSPSubModelActor::GetChildLeafNodeArray(const TArray<int32>& Dbid
     return MoveTemp(ChildLeafNodeArray);
 }
 
-void AXSPSubModelActor::SetLeafNodeVisibility(int32 Dbid, bool bVisible)
+void FXSPSubModelActor::SetLeafNodeVisibility(int32 Dbid, bool bVisible)
 {
-    const TArray<FXSPNodeData*>& NodeDataArray = Parent->GetNodeDataArray();
-    AXSPSubModelMaterialActor* Actor = GetOrCreateMaterialActor(NodeDataArray[Dbid]->MeshMaterial);
+    const TArray<FXSPNodeData*>& NodeDataArray = Owner->GetNodeDataArray();
+    FXSPSubModelMaterialActor* Actor = GetOrCreateMaterialActor(NodeDataArray[Dbid]->MeshMaterial);
     if (bVisible)
         Actor->AddNode(Dbid);
     else
