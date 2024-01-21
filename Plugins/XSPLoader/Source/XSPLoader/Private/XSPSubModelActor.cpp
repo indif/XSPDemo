@@ -6,12 +6,10 @@
 
 FXSPSubModelActor::FXSPSubModelActor()
 {
-    INC_DWORD_STAT(STAT_XSPLoader_NumSubActor);
 }
 
 FXSPSubModelActor::~FXSPSubModelActor()
 {
-    DEC_DWORD_STAT(STAT_XSPLoader_NumSubActor);
 }
 
 void FXSPSubModelActor::Init(AXSPModelActor* InOwner, int32 Dbid, int32 Num)

@@ -3,12 +3,34 @@
 #include "MeshDescriptionBuilder.h"
 #include "StaticMeshAttributes.h"
 #include "Math/UnrealMathUtility.h"
+#include "XSPStat.h"
 
-bool bXSPEnableMeshClean = false;
+bool bXSPEnableMeshClean = true;
 FAutoConsoleVariableRef CVarXSPEnableMeshClean(
     TEXT("xsp.EnableMeshClean"), 
     bXSPEnableMeshClean,
     TEXT("是否剔除网格数据中的无效三角形，缺省为否")
+);
+
+bool bXSPIgnoreRawMesh = false;
+FAutoConsoleVariableRef CVarXSPIgnoreRawMesh(
+    TEXT("xsp.IgnoreRawMesh"),
+    bXSPIgnoreRawMesh,
+    TEXT("是否忽略网格体，缺省为否")
+);
+
+bool bXSPIgnoreEllipticalMesh = false;
+FAutoConsoleVariableRef CVarXSPIgnoreEllipticalMesh(
+    TEXT("xsp.IgnoreEllipticalMesh"),
+    bXSPIgnoreEllipticalMesh,
+    TEXT("是否忽略椭圆形，缺省为否")
+);
+
+bool bXSPIgnoreCylinderMesh = false;
+FAutoConsoleVariableRef CVarXSPIgnoreCylinderMesh(
+    TEXT("xsp.IgnoreCylinderMesh"),
+    bXSPIgnoreCylinderMesh,
+    TEXT("是否忽略圆柱体，缺省为否")
 );
 
 void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, int32 Offset)
@@ -254,12 +276,12 @@ void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArr
 }
 
 //圆柱体
-void AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList)
+bool AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList)
 {
     if (vertices.size() < 13)
     {
         checkNoEntry();
-        return;
+        return false;
     }
 
     static const int32 NumSegments = 18;
@@ -340,23 +362,27 @@ void AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& V
     VertexList.Append(CylinderMeshVertices);
     if (nullptr != NormalList)
         NormalList->Append(CylinderMeshNormals);
+
+    return true;
 }
 
-void AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
+bool AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == PrimitiveParamsBuffer || BufferLength < 13)
     {
         checkNoEntry();
-        return;
+        return false;
     }
-
-    static const int32 NumSegments = 18;
-    float DeltaAngle = UE_TWO_PI / NumSegments;
 
     //[topCenter，bottomCenter，xAxis，yAxis，radius]
     FVector3f TopCenter(PrimitiveParamsBuffer[1] * 100, PrimitiveParamsBuffer[0] * 100, PrimitiveParamsBuffer[2] * 100);
     FVector3f BottomCenter(PrimitiveParamsBuffer[4] * 100, PrimitiveParamsBuffer[3] * 100, PrimitiveParamsBuffer[5] * 100);
     float Radius = PrimitiveParamsBuffer[12] * 100;
+    if (Radius < 0.01f)
+        return false;
+
+    int32 NumSegments = Radius > 1.f ? (Radius > 4.f ? (Radius > 10.f ? (Radius > 16.f ? 18 : 12) : 9) : 6) : 3;
+    float DeltaAngle = UE_TWO_PI / NumSegments;
 
     //轴向
     FVector3f UpDir = TopCenter - BottomCenter;
@@ -426,6 +452,8 @@ void AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray
 
     PositionList.Append(MoveTemp(CylinderMeshVertices));
     NormalList.Append(MoveTemp(CylinderMeshNormals));
+
+    return true;
 }
 
 void AppendNodeMesh(const Body_info& Node, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList)
@@ -435,14 +463,17 @@ void AppendNodeMesh(const Body_info& Node, TArray<FVector3f>& VertexList, TArray
         if (Node.fragment[i].name == "Mesh")
         {
             AppendRawMesh(Node.fragment[i].vertices, VertexList, NormalList);
+            INC_DWORD_STAT(STAT_XSPLoader_NumRawMesh);
         }
         else if (Node.fragment[i].name == "Elliptical")
         {
             AppendEllipticalMesh(Node.fragment[i].vertices, VertexList, NormalList);
+            INC_DWORD_STAT(STAT_XSPLoader_NumEllipticalMesh);
         }
         else if (Node.fragment[i].name == "Cylinder")
         {
             AppendCylinderMesh(Node.fragment[i].vertices, VertexList, NormalList);
+            INC_DWORD_STAT(STAT_XSPLoader_NumCylinderMesh);
         }
     }
 }
@@ -657,16 +688,28 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
         switch (PrimitiveData.Type)
         {
         case EXSPPrimitiveType::Mesh:
-            AppendRawMesh(PrimitiveData.MeshVertexBuffer, PrimitiveData.MeshNormalBuffer, PrimitiveData.MeshVertexBufferLength,
-                NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+            if (!bXSPIgnoreRawMesh)
+            {
+                AppendRawMesh(PrimitiveData.MeshVertexBuffer, PrimitiveData.MeshNormalBuffer, PrimitiveData.MeshVertexBufferLength,
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                INC_DWORD_STAT(STAT_XSPLoader_NumRawMesh);
+            }
             break;
         case EXSPPrimitiveType::Elliptical:
-            AppendEllipticalMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength,
-                NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+            if (!bXSPIgnoreEllipticalMesh)
+            {
+                AppendEllipticalMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength,
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                INC_DWORD_STAT(STAT_XSPLoader_NumEllipticalMesh);
+            }
             break;
         case EXSPPrimitiveType::Cylinder:
-            AppendCylinderMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength, 
-                NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+            if (!bXSPIgnoreCylinderMesh)
+            {
+                AppendCylinderMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength,
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                INC_DWORD_STAT(STAT_XSPLoader_NumCylinderMesh);
+            }
             break;
         }
     }

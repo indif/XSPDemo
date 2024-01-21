@@ -36,7 +36,6 @@ UXSPBatchMeshComponent::UXSPBatchMeshComponent()
 
 UXSPBatchMeshComponent::~UXSPBatchMeshComponent()
 {
-    DEC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
 }
 
 void UXSPBatchMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<int32>& InDbidArray, bool bAsyncBuild)
@@ -55,7 +54,6 @@ void UXSPBatchMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<int
         {
             AsyncBuildTask = new FAsyncTask<FXSPBuildStaticMeshTask>(this);
             AsyncBuildTask->StartBackgroundTask();
-            INC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
         }
         else
         {
@@ -65,8 +63,6 @@ void UXSPBatchMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<int
             BuildingStaticMesh = nullptr;
         }
     }
-
-    INC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
 }
 
 const TArray<int32>& UXSPBatchMeshComponent::GetNodes() const
@@ -98,8 +94,6 @@ bool UXSPBatchMeshComponent::TryFinishBuildMesh()
 
         delete AsyncBuildTask;
         AsyncBuildTask = nullptr;
-
-        DEC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
 
         return true;
     }
@@ -152,8 +146,6 @@ bool UXSPBatchMeshComponent::GetPhysicsTriMeshData(FTriMeshCollisionData* Collis
 
 void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
 {
-    int64 Ticks1 = FDateTime::Now().GetTicks();
-
     const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     for (int32 Dbid : DbidArray)
     {
@@ -215,8 +207,6 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
     BuildingStaticMesh->InitResources();
 
     BuildingStaticMesh->CalculateExtendedBounds();
-
-    INC_FLOAT_STAT_BY(STAT_XSPLoader_BuildStaticMeshTime, (float)(FDateTime::Now().GetTicks() - Ticks1) / ETimespan::TicksPerSecond);
 }
 
 void UXSPBatchMeshComponent::BuildPhysicsData(bool bAsync)

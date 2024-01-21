@@ -32,6 +32,24 @@ extern int32 XSPMaxNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesPerBatch;
 extern int32 XSPMinNumVerticesUnbatch;
 
+namespace 
+{
+    void ClearStats()
+    {
+        SET_DWORD_STAT(STAT_XSPLoader_NumNode, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumLevelOneNode, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumLeafNode, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumBatchComponent, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumTotalVertices, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumRegisteredVertices, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumRegisteredComponents, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumCreatedPhysicsState, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumRawMesh, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumCylinderMesh, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumEllipticalMesh, 0);
+        SET_FLOAT_STAT(STAT_XSPLoader_ReadFileTime, 0);
+    }
+}
 
 // Sets default values
 AXSPModelActor::AXSPModelActor()
@@ -47,6 +65,7 @@ AXSPModelActor::~AXSPModelActor()
     {
         delete NodeData;
     }
+    ClearStats();
 }
 
 bool AXSPModelActor::Load(const TArray<FString>& FilePathNameArray, bool bAsyncBuild)

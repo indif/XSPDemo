@@ -14,12 +14,10 @@ extern int32 XSPMinNumVerticesUnbatch;
 
 FXSPSubModelMaterialActor::FXSPSubModelMaterialActor()
 {
-    INC_DWORD_STAT(STAT_XSPLoader_NumSubMaterialActor);
 }
 
 FXSPSubModelMaterialActor::~FXSPSubModelMaterialActor()
 {
-    DEC_DWORD_STAT(STAT_XSPLoader_NumSubMaterialActor);
 }
 
 void FXSPSubModelMaterialActor::Init(AXSPModelActor* InOwner, UMaterialInstanceDynamic* Material, int32 InCustomDepthStencilValue, bool bInRenderInMainAndDepthPass)
@@ -182,6 +180,7 @@ bool FXSPSubModelMaterialActor::ProcessRegister()
 void FXSPSubModelMaterialActor::AddComponent(const TArray<int32>& DbidArray, bool bAsyncBuild)
 {
     MyComponentClass* Component = NewObject<MyComponentClass>(Owner);
+    INC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
     for (int32 Dbid : DbidArray)
     {
         NodeComponentMap[Dbid] = Component;
@@ -222,17 +221,14 @@ void FXSPSubModelMaterialActor::ReleaseComponent(UPrimitiveComponent* Component)
     {
         Component->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
         Component->DestroyComponent();
+        DEC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
     }
 }
 
 void FXSPSubModelMaterialActor::RegisterComponent(UPrimitiveComponent* Component)
 {
     Component->AttachToComponent(Owner->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-
-    int64 TicksBeforeRegisterComponent = FDateTime::Now().GetTicks();
     Component->RegisterComponent();
-    INC_FLOAT_STAT_BY(STAT_XSPLoader_RegisterComponentTime, (float)(FDateTime::Now().GetTicks() - TicksBeforeRegisterComponent) / ETimespan::TicksPerSecond);
-
     INC_DWORD_STAT(STAT_XSPLoader_NumRegisteredComponents);
     INC_DWORD_STAT_BY(STAT_XSPLoader_NumRegisteredVertices, Cast<MyComponentClass>(Component)->GetNumVertices());
 }

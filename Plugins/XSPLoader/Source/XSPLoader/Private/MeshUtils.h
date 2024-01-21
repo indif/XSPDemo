@@ -10,7 +10,7 @@ void AppendRawMesh(const std::vector<float>& vertices, TArray<FVector3f>& Vertex
 
 void AppendEllipticalMesh(const std::vector<float>& vertices, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList);
 
-void AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList);
+bool AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList);
 
 void AppendNodeMesh(const Body_info& Node, TArray<FVector3f>& VertexList, TArray<FVector3f>* NormalList);
 

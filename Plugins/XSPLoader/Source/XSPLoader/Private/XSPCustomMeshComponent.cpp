@@ -154,7 +154,6 @@ UXSPCustomMeshComponent::UXSPCustomMeshComponent()
 
 UXSPCustomMeshComponent::~UXSPCustomMeshComponent()
 {
-    DEC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
 }
 
 void UXSPCustomMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<int32>& InDbidArray, bool bAsyncBuild)
@@ -169,14 +168,11 @@ void UXSPCustomMeshComponent::Init(AXSPModelActor* InOwnerActor, const TArray<in
     {
         AsyncBuildTask = new FAsyncTask<FXSPBuildCustomMeshTask>(this);
         AsyncBuildTask->StartBackgroundTask();
-        INC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
     }
     else
     {
         BuildMesh_AnyThread();
     }
-
-    INC_DWORD_STAT(STAT_XSPLoader_NumBatchComponent);
 }
 
 const TArray<int32>& UXSPCustomMeshComponent::GetNodes() const
@@ -208,7 +204,6 @@ bool UXSPCustomMeshComponent::TryFinishBuildMesh()
             delete AsyncBuildTask;
             AsyncBuildTask = nullptr;
 
-            DEC_DWORD_STAT(STAT_XSPLoader_NumBuildingComponents);
             return true;
         }
         return false;
@@ -306,8 +301,6 @@ bool UXSPCustomMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) c
 
 void UXSPCustomMeshComponent::BuildMesh_AnyThread()
 {
-    int64 Ticks1 = FDateTime::Now().GetTicks();
-
     const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     for (int32 Dbid : DbidArray)
     {
@@ -354,8 +347,6 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
     bRenderingResourcesInitialized = true;
 
     LocalBounds = FBoxSphereBounds(FBox(BoundingBox));
-
-    INC_FLOAT_STAT_BY(STAT_XSPLoader_BuildStaticMeshTime, (float)(FDateTime::Now().GetTicks() - Ticks1) / ETimespan::TicksPerSecond);
 }
 
 void UXSPCustomMeshComponent::ReleaseResources()
