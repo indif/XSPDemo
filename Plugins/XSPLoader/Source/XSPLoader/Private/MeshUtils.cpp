@@ -125,6 +125,10 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
             PositionList.Add(A);
             PositionList.Add(B);
             PositionList.Add(C);
+            InOutBoundingBox += A;
+            InOutBoundingBox += B;
+            InOutBoundingBox += C;
+
             if (nullptr != MeshNormalBuffer)
             {
                 NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 1], MeshNormalBuffer[j * 9 + 0], MeshNormalBuffer[j * 9 + 2]));
