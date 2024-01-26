@@ -82,6 +82,13 @@ bool AXSPModelActor::Load(const TArray<FString>& FilePathNameArray, bool bAsyncB
     return LoadToDynamicCombinedMesh(FilePathNameArray);
 }
 
+int32 AXSPModelActor::GetNumNodes()
+{
+    if (EState::Empty == State || EState::ReadingFile == State)
+        return -1;
+    return NodeDataArray.Num();
+}
+
 int32 AXSPModelActor::GetNode(UPrimitiveComponent* Component, int32 FaceIndex)
 {
     MyComponentClass* MyComponent = Cast<MyComponentClass>(Component);
@@ -153,7 +160,7 @@ void AXSPModelActor::SetRenderCustomDepthStencilArray(const TArray<int32>& DbidA
     {
         TArray<int32> SubArray = GetSubArray(DbidArray, Pair.Key, NodeDataArray[Pair.Key]->NumChildren);
         if (!SubArray.IsEmpty())
-            Pair.Value->SetRenderCustomDepthStencil(DbidArray, CustomDepthStencilValue);
+            Pair.Value->SetRenderCustomDepthStencil(SubArray, CustomDepthStencilValue);
     }
 }
 
@@ -188,7 +195,7 @@ void AXSPModelActor::ClearRenderCustomDepthStencilArray(const TArray<int32>& Dbi
     {
         TArray<int32> SubArray = GetSubArray(DbidArray, Pair.Key, NodeDataArray[Pair.Key]->NumChildren);
         if (!SubArray.IsEmpty())
-            Pair.Value->ClearRenderCustomDepthStencil(DbidArray);
+            Pair.Value->ClearRenderCustomDepthStencil(SubArray);
     }
 }
 
@@ -220,7 +227,7 @@ void AXSPModelActor::SetVisibilityArray(const TArray<int32>& DbidArray, bool bVi
     {
         TArray<int32> SubArray = GetSubArray(DbidArray, Pair.Key, NodeDataArray[Pair.Key]->NumChildren);
         if (!SubArray.IsEmpty())
-            Pair.Value->SetVisibility(DbidArray, bVisible);
+            Pair.Value->SetVisibility(SubArray, bVisible);
     }
 }
 
@@ -255,7 +262,7 @@ void AXSPModelActor::SetRenderColorArray(const TArray<int32>& DbidArray, const F
     {
         TArray<int32> SubArray = GetSubArray(DbidArray, Pair.Key, NodeDataArray[Pair.Key]->NumChildren);
         if (!SubArray.IsEmpty())
-            Pair.Value->SetRenderColor(DbidArray, Color);
+            Pair.Value->SetRenderColor(SubArray, Color);
     }
 }
 
@@ -290,7 +297,7 @@ void AXSPModelActor::ClearRenderColorArray(const TArray<int32>& DbidArray)
     {
         TArray<int32> SubArray = GetSubArray(DbidArray, Pair.Key, NodeDataArray[Pair.Key]->NumChildren);
         if (!SubArray.IsEmpty())
-            Pair.Value->ClearRenderColor(DbidArray);
+            Pair.Value->ClearRenderColor(SubArray);
     }
 }
 

@@ -22,8 +22,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool Load(const TArray<FString>& FilePathNameArray, bool bAsyncBuild=false);
 
+	//获取模型节点数量
+	UFUNCTION(BlueprintPure)
+	int32 GetNumNodes();
+
 	//查询拾取到的节点DBID
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 	int32 GetNode(UPrimitiveComponent* Component, int32 FaceIndex);
 
 	//查询节点包围盒
