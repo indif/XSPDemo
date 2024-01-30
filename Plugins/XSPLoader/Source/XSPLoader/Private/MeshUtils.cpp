@@ -3,6 +3,11 @@
 #include "MeshDescriptionBuilder.h"
 #include "StaticMeshAttributes.h"
 #include "Math/UnrealMathUtility.h"
+
+#include "MeshBuild.h"
+#include "OverlappingCorners.h"
+#include "MeshSimplify/MeshSimplify.h"
+
 #include "XSPStat.h"
 
 bool bXSPEnableMeshClean = true;
@@ -31,6 +36,34 @@ FAutoConsoleVariableRef CVarXSPIgnoreCylinderMesh(
     TEXT("xsp.IgnoreCylinderMesh"),
     bXSPIgnoreCylinderMesh,
     TEXT("是否忽略圆柱体，缺省为否")
+);
+
+bool bXSPSimplyRawMesh = false;
+FAutoConsoleVariableRef CVarXSPSimplyRawMesh(
+    TEXT("xsp.SimplyRawMesh"),
+    bXSPSimplyRawMesh,
+    TEXT("是否简化网格，缺省为否")
+);
+
+int32 XSPSimplyRawMeshMinVertices = 1000;
+FAutoConsoleVariableRef CVarXSPSimplyRawMeshMinVertices(
+    TEXT("xsp.SimplyRawMesh.MinVertices"),
+    XSPSimplyRawMeshMinVertices,
+    TEXT("执行网格简化的网格最小顶点数，缺省为1000")
+);
+
+float XSPSimplyRawMeshPercentTriangles = 0.5f;
+FAutoConsoleVariableRef CVarXSPSimplyRawMeshPercentTriangles(
+    TEXT("xsp.SimplyRawMesh.PercentTriangles"),
+    XSPSimplyRawMeshPercentTriangles,
+    TEXT("简化网格的目标三角形数比，缺省为0.5")
+);
+
+float XSPSimplyRawMeshPercentVertices = 0.5f;
+FAutoConsoleVariableRef CVarXSPSimplyRawMeshPercentVertices(
+    TEXT("xsp.SimplyRawMesh.PercentVertices"),
+    XSPSimplyRawMeshPercentVertices,
+    TEXT("简化网格的目标顶点数比，缺省为0.5")
 );
 
 void ComputeNormal(const TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, int32 Offset)
@@ -101,7 +134,7 @@ void AppendRawMesh(const std::vector<float>& vertices, TArray<FVector3f>& Vertex
     }
 }
 
-void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
+void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, TArray<uint32>& IndexList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == MeshVertexBuffer || BufferLength < 9 || BufferLength % 9 != 0)
     {
@@ -109,64 +142,106 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
         return;
     }
 
-    int32 Offset = PositionList.Num();
+    int32 PositionOffset = PositionList.Num();
+    int32 IndexOffset = IndexList.Num();
 
-    if (bXSPEnableMeshClean)
+    int32 NumMeshVertices = BufferLength / 3;
+    int32 NumMeshTriangles = BufferLength / 9;
+
+    if (bXSPSimplyRawMesh && NumMeshVertices >= XSPSimplyRawMeshMinVertices)
     {
-        int32 NumTriangles = BufferLength / 9;
-        for (size_t j = 0; j < NumTriangles; j++)
+        TArray<FVector3f> Positions;
+        Positions.SetNumUninitialized(NumMeshVertices);
+        for (int32 i = 0; i < NumMeshVertices; i++)
         {
-            FVector3f A(MeshVertexBuffer[j * 9 + 1] * 100, MeshVertexBuffer[j * 9 + 0] * 100, MeshVertexBuffer[j * 9 + 2] * 100);
-            FVector3f B(MeshVertexBuffer[j * 9 + 4] * 100, MeshVertexBuffer[j * 9 + 3] * 100, MeshVertexBuffer[j * 9 + 5] * 100);
-            FVector3f C(MeshVertexBuffer[j * 9 + 7] * 100, MeshVertexBuffer[j * 9 + 6] * 100, MeshVertexBuffer[j * 9 + 8] * 100);
-            if (A == B || A == C || B == C)
-                continue;
-
-            PositionList.Add(A);
-            PositionList.Add(B);
-            PositionList.Add(C);
-            InOutBoundingBox += A;
-            InOutBoundingBox += B;
-            InOutBoundingBox += C;
-
-            if (nullptr != MeshNormalBuffer)
+            Positions[i].Set(MeshVertexBuffer[i * 3 + 1] * 100, MeshVertexBuffer[i * 3 + 0] * 100, MeshVertexBuffer[i * 3 + 2] * 100);
+            InOutBoundingBox += Positions[i];
+        }
+        TArray<FVector3f> SimplifiedPositions;
+        TArray<FPackedNormal> SimplifiedNormals;
+        TArray<uint32> SimplifiedIndices;
+        if (SimplyMesh(Positions, XSPSimplyRawMeshPercentTriangles, XSPSimplyRawMeshPercentVertices, SimplifiedPositions, SimplifiedNormals, SimplifiedIndices))
+        {
+            PositionList.Append(SimplifiedPositions);
+            NormalList.Append(SimplifiedNormals);
+            IndexList.Append(SimplifiedIndices);
+            if (PositionOffset > 0)
             {
-                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 1], MeshNormalBuffer[j * 9 + 0], MeshNormalBuffer[j * 9 + 2]));
-                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 4], MeshNormalBuffer[j * 9 + 3], MeshNormalBuffer[j * 9 + 5]));
-                NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 7], MeshNormalBuffer[j * 9 + 6], MeshNormalBuffer[j * 9 + 8]));
+                for (int32 i = 0; i < SimplifiedIndices.Num(); i++)
+                {
+                    IndexList[IndexOffset + i] += PositionOffset;
+                }
             }
-            else
-            {
-                const FVector3f Edge21 = B - C;
-                const FVector3f Edge20 = A - C;
-                FVector3f TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
-                NormalList.Add(TriNormal);
-                NormalList.Add(TriNormal);
-                NormalList.Add(TriNormal);
-            }
+            
+            INC_DWORD_STAT(STAT_XSPLoader_NumRawMeshSimplified);
+            INC_DWORD_STAT_BY(STAT_XSPLoader_NumTotalVerticesSimplied, Positions.Num()-SimplifiedPositions.Num());
+            return;
         }
     }
-    else
-    {
-        int32 NumMeshVertices = BufferLength / 3;
-        PositionList.AddUninitialized(NumMeshVertices);
-        for (size_t j = 0; j < NumMeshVertices; j++)
-        {
-            PositionList[Offset + j].Set(MeshVertexBuffer[j * 3 + 1] * 100, MeshVertexBuffer[j * 3 + 0] * 100, MeshVertexBuffer[j * 3 + 2] * 100);
-            InOutBoundingBox += PositionList[Offset + j];
-        }
 
-        NormalList.AddUninitialized(NumMeshVertices);
-        if (nullptr != MeshNormalBuffer)
+    {
+        if (bXSPEnableMeshClean)
         {
-            for (size_t j = 0; j < NumMeshVertices; j++)
+            int32 Index = PositionOffset;
+            for (size_t j = 0; j < NumMeshTriangles; j++)
             {
-                NormalList[Offset + j] = FVector3f(MeshNormalBuffer[j * 3 + 1], MeshNormalBuffer[j * 3 + 0], MeshNormalBuffer[j * 3 + 2]);
+                FVector3f A(MeshVertexBuffer[j * 9 + 1] * 100, MeshVertexBuffer[j * 9 + 0] * 100, MeshVertexBuffer[j * 9 + 2] * 100);
+                FVector3f B(MeshVertexBuffer[j * 9 + 4] * 100, MeshVertexBuffer[j * 9 + 3] * 100, MeshVertexBuffer[j * 9 + 5] * 100);
+                FVector3f C(MeshVertexBuffer[j * 9 + 7] * 100, MeshVertexBuffer[j * 9 + 6] * 100, MeshVertexBuffer[j * 9 + 8] * 100);
+                if (A == B || A == C || B == C)
+                    continue;
+
+                PositionList.Add(A);
+                PositionList.Add(B);
+                PositionList.Add(C);
+                InOutBoundingBox += A;
+                InOutBoundingBox += B;
+                InOutBoundingBox += C;
+
+                IndexList.Add(Index++);
+                IndexList.Add(Index++);
+                IndexList.Add(Index++);
+
+                if (nullptr != MeshNormalBuffer)
+                {
+                    NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 1], MeshNormalBuffer[j * 9 + 0], MeshNormalBuffer[j * 9 + 2]));
+                    NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 4], MeshNormalBuffer[j * 9 + 3], MeshNormalBuffer[j * 9 + 5]));
+                    NormalList.Add(FVector3f(MeshNormalBuffer[j * 9 + 7], MeshNormalBuffer[j * 9 + 6], MeshNormalBuffer[j * 9 + 8]));
+                }
+                else
+                {
+                    const FVector3f Edge21 = B - C;
+                    const FVector3f Edge20 = A - C;
+                    FVector3f TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
+                    NormalList.Add(TriNormal);
+                    NormalList.Add(TriNormal);
+                    NormalList.Add(TriNormal);
+                }
             }
         }
         else
         {
-            ComputeNormal(PositionList, NormalList, Offset);
+            PositionList.AddUninitialized(NumMeshVertices);
+            IndexList.AddUninitialized(NumMeshVertices);
+            for (size_t j = 0; j < NumMeshVertices; j++)
+            {
+                PositionList[PositionOffset + j].Set(MeshVertexBuffer[j * 3 + 1] * 100, MeshVertexBuffer[j * 3 + 0] * 100, MeshVertexBuffer[j * 3 + 2] * 100);
+                InOutBoundingBox += PositionList[PositionOffset + j];
+                IndexList[IndexOffset + j] = PositionOffset + j;
+            }
+
+            NormalList.AddUninitialized(NumMeshVertices);
+            if (nullptr != MeshNormalBuffer)
+            {
+                for (size_t j = 0; j < NumMeshVertices; j++)
+                {
+                    NormalList[PositionOffset + j] = FVector3f(MeshNormalBuffer[j * 3 + 1], MeshNormalBuffer[j * 3 + 0], MeshNormalBuffer[j * 3 + 2]);
+                }
+            }
+            else
+            {
+                ComputeNormal(PositionList, NormalList, PositionOffset);
+            }
         }
     }
 }
@@ -224,7 +299,7 @@ void AppendEllipticalMesh(const std::vector<float>& vertices, TArray<FVector3f>&
         NormalList->Append(EllipticalMeshNormals);
 }
 
-void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
+void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, TArray<uint32>& IndexList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == PrimitiveParamsBuffer || BufferLength < 10)
     {
@@ -245,8 +320,8 @@ void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArr
 
     //沿径向的一圈向量
     TArray<FVector3f> RadialVectors;
-    RadialVectors.SetNumUninitialized(NumSegments + 1);
-    for (int32 i = 0; i <= NumSegments; i++)
+    RadialVectors.SetNumUninitialized(NumSegments);
+    for (int32 i = 0; i < NumSegments; i++)
     {
         RadialVectors[i] = XVector * Radius * FMath::Sin(DeltaAngle * i) + YVector * Radius * FMath::Cos(DeltaAngle * i);
     }
@@ -254,29 +329,25 @@ void AppendEllipticalMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArr
     //椭圆面
     TArray<FVector3f> EllipticalMeshVertices;
     TArray<FPackedNormal> EllipticalMeshNormals;
-    EllipticalMeshVertices.SetNumUninitialized(NumSegments * 3);
-    EllipticalMeshNormals.SetNumUninitialized(NumSegments * 3);
-    int32 Index = 0;
+    TArray<uint32> EllipticalMeshIndices;
+    EllipticalMeshVertices.SetNumUninitialized(NumSegments + 1);
+    EllipticalMeshNormals.SetNumUninitialized(NumSegments + 1);
+    EllipticalMeshIndices.SetNumUninitialized(NumSegments * 3);
+    EllipticalMeshVertices[0] = Origin;
+    EllipticalMeshNormals[0] = Normal;
     for (int32 i = 0; i < NumSegments; i++)
     {
-        EllipticalMeshNormals[Index] = Normal;
-        EllipticalMeshVertices[Index] = Origin;
-        InOutBoundingBox += EllipticalMeshVertices[Index];
-        Index++;
+        EllipticalMeshVertices[i+1] = Origin + RadialVectors[i];
+        EllipticalMeshNormals[i+1] = Normal;
+        InOutBoundingBox += EllipticalMeshVertices[i+1];
 
-        EllipticalMeshNormals[Index] = Normal;
-        EllipticalMeshVertices[Index] = Origin + RadialVectors[i + 1];
-        InOutBoundingBox += EllipticalMeshVertices[Index];
-        Index++;
-        
-        EllipticalMeshNormals[Index] = Normal;
-        EllipticalMeshVertices[Index] = Origin + RadialVectors[i];
-        InOutBoundingBox += EllipticalMeshVertices[Index];
-        Index++;
+        EllipticalMeshIndices[i] = 0;
+        EllipticalMeshIndices[i + 1] = (i + 2) % NumSegments;
+        EllipticalMeshIndices[i + 2] = i + 1;
     }
-
     PositionList.Append(MoveTemp(EllipticalMeshVertices));
     NormalList.Append(MoveTemp(EllipticalMeshNormals));
+    IndexList.Append(MoveTemp(EllipticalMeshIndices));
 }
 
 //圆柱体
@@ -370,7 +441,7 @@ bool AppendCylinderMesh(const std::vector<float>& vertices, TArray<FVector3f>& V
     return true;
 }
 
-bool AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, FBox3f& InOutBoundingBox)
+bool AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray<FVector3f>& PositionList, TArray<FPackedNormal>& NormalList, TArray<uint32>& IndexList, FBox3f& InOutBoundingBox)
 {
     if (nullptr == PrimitiveParamsBuffer || BufferLength < 13)
     {
@@ -405,19 +476,38 @@ bool AppendCylinderMesh(float* PrimitiveParamsBuffer, uint8 BufferLength, TArray
 
     //沿径向的一圈向量
     TArray<FVector3f> RadialVectors;
-    RadialVectors.SetNumUninitialized(NumSegments + 1);
-    for (int32 i = 0; i <= NumSegments; i++)
+    RadialVectors.SetNumUninitialized(NumSegments);
+    for (int32 i = 0; i < NumSegments; i++)
     {
         RadialVectors[i] = RadialDir.RotateAngleAxisRad(DeltaAngle * i, UpDir) * Radius;
     }
 
     TArray<FVector3f> CylinderMeshVertices;
     TArray<FPackedNormal> CylinderMeshNormals;
-    CylinderMeshVertices.SetNumUninitialized(NumSegments * 6);
-    CylinderMeshNormals.SetNumUninitialized(NumSegments * 6);
+    TArray<uint32> CylinderMeshIndices;
+    CylinderMeshVertices.SetNumUninitialized(NumSegments * 2);
+    CylinderMeshNormals.SetNumUninitialized(NumSegments * 2);
+    CylinderMeshIndices.SetNumUninitialized(NumSegments * 6);
+    for (int32 i = 0; i < NumSegments; i++)
+    {
+        CylinderMeshVertices[i * 2] = TopCenter + RadialVectors[i];
+        CylinderMeshVertices[i * 2 + 1] = BottomCenter + RadialVectors[i];
+
+        FVector3f Normal = RadialVectors[i].GetSafeNormal();
+        Normal.Normalize();
+        CylinderMeshNormals[i * 2] = Normal;
+        CylinderMeshNormals[i * 2 + 1] = Normal;
+
+        CylinderMeshIndices[i * 6] = i * 2;
+        CylinderMeshIndices[i * 6 + 1] = (i + 1) % NumSegments * 2 + 1;
+        CylinderMeshIndices[i * 6 + 2] = i * 2 + 1;
+        CylinderMeshIndices[i * 6 + 3] = (i + 1) % NumSegments * 2 + 1;
+        CylinderMeshIndices[i * 6 + 4] = i * 2;
+        CylinderMeshIndices[i * 6 + 5] = (i + 1) % NumSegments * 2;
+    }
+
     FVector3f Normal, Normal1;
     int32 Index = 0;
-    //侧面
     for (int32 i = 0; i < NumSegments; i++)
     {
         Normal = RadialVectors[i].GetSafeNormal();
@@ -695,7 +785,7 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
             if (!bXSPIgnoreRawMesh)
             {
                 AppendRawMesh(PrimitiveData.MeshVertexBuffer, PrimitiveData.MeshNormalBuffer, PrimitiveData.MeshVertexBufferLength,
-                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshIndexArray, NodeData.MeshBoundingBox);
                 INC_DWORD_STAT(STAT_XSPLoader_NumRawMesh);
             }
             break;
@@ -703,7 +793,7 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
             if (!bXSPIgnoreEllipticalMesh)
             {
                 AppendEllipticalMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength,
-                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshIndexArray, NodeData.MeshBoundingBox);
                 INC_DWORD_STAT(STAT_XSPLoader_NumEllipticalMesh);
             }
             break;
@@ -711,7 +801,7 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
             if (!bXSPIgnoreCylinderMesh)
             {
                 AppendCylinderMesh(PrimitiveData.PrimitiveParamsBuffer, PrimitiveData.PrimitiveParamsBufferLength,
-                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshBoundingBox);
+                    NodeData.MeshPositionArray, NodeData.MeshNormalArray, NodeData.MeshIndexArray, NodeData.MeshBoundingBox);
                 INC_DWORD_STAT(STAT_XSPLoader_NumCylinderMesh);
             }
             break;
@@ -720,4 +810,192 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
 
     //生成网格数据后释放原始Primitive数据
     NodeData.PrimitiveArray.Empty();
+}
+
+
+void CorrectAttributes(float* Attributes)
+{
+    FVector3f& Normal = *reinterpret_cast<FVector3f*>(Attributes);
+    Normal.Normalize();
+}
+
+struct FVertSimp
+{
+    FVector3f			Position;
+    FVector3f			Normal;
+    bool Equals(const FVertSimp& a) const
+    {
+        if (!PointsEqual(Position, a.Position) ||
+            !NormalsEqual(Normal, a.Normal))
+        {
+            return false;
+        }
+        return true;
+    }
+};
+
+bool SimplyMesh(const TArray<FVector3f>& InPositions, float PercentTriangles, float PercentVertices, TArray<FVector3f>& OutPositions, TArray<FPackedNormal>& OutNormals, TArray<uint32>& OutIndices)
+{
+    uint32 NumVertices = InPositions.Num();
+    TArray<uint32> InIndices;
+    InIndices.SetNumUninitialized(NumVertices);
+    for (uint32 i = 0; i < NumVertices; i++)
+        InIndices[i] = i;
+
+    float OverlappingThreshold = THRESH_POINTS_ARE_SAME;
+    FOverlappingCorners OverlappingCorners(InPositions, InIndices, OverlappingThreshold);
+
+    TArray<FVertSimp> Verts;
+    TArray<uint32> Indexes;
+    int32 NumTriangles = NumVertices / 3;
+    int32 NumWedges = NumTriangles * 3;
+
+    TMap<int32, int32> VertsMap;
+
+    float SurfaceArea = 0.0f;
+    int32 WedgeIndex = 0;
+    for (int32 i = 0; i < NumTriangles; i++)
+    {
+        FVector3f CornerPositions[3];
+        for (int32 TriVert = 0; TriVert < 3; ++TriVert)
+        {
+            CornerPositions[TriVert] = InPositions[i * 3 + TriVert];
+        }
+
+        if (PointsEqual(CornerPositions[0], CornerPositions[1]) ||
+            PointsEqual(CornerPositions[0], CornerPositions[2]) ||
+            PointsEqual(CornerPositions[1], CornerPositions[2]))
+        {
+            WedgeIndex += 3;
+            continue;
+        }
+
+        FVector3f TriNormal;
+        {
+            const FVector3f Edge21 = CornerPositions[1] - CornerPositions[2];
+            const FVector3f Edge20 = CornerPositions[0] - CornerPositions[1];
+            TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
+            TriNormal.Normalize();
+        }
+
+        int32 VertexIndices[3];
+        for (int32 TriVert = 0; TriVert < 3; ++TriVert, ++WedgeIndex)
+        {
+            FVertSimp NewVert;
+            NewVert.Position = CornerPositions[TriVert];
+            NewVert.Normal = TriNormal;
+
+            const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(WedgeIndex);
+
+            int32 Index = INDEX_NONE;
+            for (int32 k = 0; k < DupVerts.Num(); k++)
+            {
+                if (DupVerts[k] >= WedgeIndex)
+                {
+                    break;
+                }
+
+                int32* Location = VertsMap.Find(DupVerts[k]);
+                if (Location)
+                {
+                    FVertSimp& FoundVert = Verts[*Location];
+
+                    if (NewVert.Equals(FoundVert))
+                    {
+                        Index = *Location;
+                        break;
+                    }
+                }
+            }
+            if (Index == INDEX_NONE)
+            {
+                Index = Verts.Add(NewVert);
+                VertsMap.Add(WedgeIndex, Index);
+            }
+            VertexIndices[TriVert] = Index;
+        }
+        if (VertexIndices[0] == VertexIndices[1] ||
+            VertexIndices[1] == VertexIndices[2] ||
+            VertexIndices[0] == VertexIndices[2])
+        {
+            continue;
+        }
+
+        {
+            FVector3f Edge01 = CornerPositions[1] - CornerPositions[0];
+            FVector3f Edge20 = CornerPositions[0] - CornerPositions[2];
+
+            float TriArea = 0.5f * (Edge01 ^ Edge20).Size();
+            SurfaceArea += TriArea;
+        }
+
+        Indexes.Add(VertexIndices[0]);
+        Indexes.Add(VertexIndices[1]);
+        Indexes.Add(VertexIndices[2]);
+    }
+
+    int32 NumVerts = Verts.Num();
+    int32 NumIndexes = Indexes.Num();
+    int32 NumTris = NumIndexes / 3;
+
+    int32 TargetNumTris = FMath::CeilToInt(NumTris * PercentTriangles);
+    int32 TargetNumVerts = FMath::CeilToInt(NumVerts * PercentVertices);
+
+    TargetNumTris = FMath::Max(TargetNumTris, 2);
+    TargetNumVerts = FMath::Max(TargetNumVerts, 4);
+
+    {
+        if (TargetNumVerts < NumVerts || TargetNumTris < NumTris)
+        {
+            const uint32 NumAttributes = (sizeof(FVertSimp) - sizeof(FVector3f)) / sizeof(float);
+            float AttributeWeights[NumAttributes] =
+            {
+                16.0f, 16.0f, 16.0f// Normal
+            };
+
+            TArray<int32> MaterialIndexes;
+            MaterialIndexes.AddZeroed(NumTris);
+
+            FMeshSimplifier Simplifier((float*)Verts.GetData(), Verts.Num(), Indexes.GetData(), Indexes.Num(), MaterialIndexes.GetData(), NumAttributes);
+
+            Simplifier.SetAttributeWeights(AttributeWeights);
+            Simplifier.SetCorrectAttributes(CorrectAttributes);
+            Simplifier.SetEdgeWeight(512.0f);
+            Simplifier.SetLimitErrorToSurfaceArea(false);
+
+            Simplifier.DegreePenalty = 100.0f;
+            Simplifier.InversionPenalty = 1000000.0f;
+
+            float MaxErrorSqr = Simplifier.Simplify(TargetNumVerts, TargetNumTris, 0.0f, 4, 2, MAX_flt);
+
+            if (Simplifier.GetRemainingNumVerts() == 0 || Simplifier.GetRemainingNumTris() == 0)
+            {
+                return false;
+            }
+
+            Simplifier.Compact();
+
+            Verts.SetNum(Simplifier.GetRemainingNumVerts());
+            Indexes.SetNum(Simplifier.GetRemainingNumTris() * 3);
+
+            NumVerts = Simplifier.GetRemainingNumVerts();
+            NumTris = Simplifier.GetRemainingNumTris();
+            NumIndexes = NumTris * 3;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    OutPositions.SetNumUninitialized(NumVerts);
+    OutNormals.SetNumUninitialized(NumVerts);
+    for (int32 i = 0; i < NumVerts; i++)
+    {
+        OutPositions[i] = Verts[i].Position;
+        OutNormals[i] = Verts[i].Normal;
+    }
+    OutIndices = Indexes;
+
+    return true;
 }

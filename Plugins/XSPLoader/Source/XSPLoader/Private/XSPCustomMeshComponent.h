@@ -97,4 +97,4 @@ private:
     UXSPCustomMeshComponent* XSPCustomMeshComponent;
 };
 
-typedef UXSPCustomMeshComponent MyComponentClass;
+//typedef UXSPCustomMeshComponent MyComponentClass;

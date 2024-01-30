@@ -43,7 +43,8 @@ public class XSPLoader : ModuleRules
                 "StaticMeshDescription",
                 "Projects",
 				"RenderCore",
-				"RHI"
+				"RHI",
+                "MeshUtilitiesCommon"
             }
 			);
 		

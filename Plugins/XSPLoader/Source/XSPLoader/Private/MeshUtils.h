@@ -32,3 +32,5 @@ bool CheckNode(const Body_info& Node);
 
 void InheritMaterial(FXSPNodeData& Node, FXSPNodeData& ParentNode);
 void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData);
+
+bool SimplyMesh(const TArray<FVector3f>& InPositions, float PercentTriangles, float PercentVertices, TArray<FVector3f>& OutPositions, TArray<FPackedNormal>& OutNormals, TArray<uint32>& OutIndices);

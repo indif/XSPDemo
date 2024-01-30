@@ -77,6 +77,7 @@ struct FXSPNodeData
 	//生成的网格体数据(由节点包含的所有原始几何体合并的)
 	TArray<FVector3f> MeshPositionArray;
 	TArray<FPackedNormal> MeshNormalArray;
+	TArray<uint32> MeshIndexArray;
 
 	//包围盒
 	FBox3f MeshBoundingBox;

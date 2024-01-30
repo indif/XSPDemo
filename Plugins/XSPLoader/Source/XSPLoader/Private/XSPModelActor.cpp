@@ -48,6 +48,8 @@ namespace
         SET_DWORD_STAT(STAT_XSPLoader_NumCylinderMesh, 0);
         SET_DWORD_STAT(STAT_XSPLoader_NumEllipticalMesh, 0);
         SET_FLOAT_STAT(STAT_XSPLoader_ReadFileTime, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumRawMeshSimplified, 0);
+        SET_DWORD_STAT(STAT_XSPLoader_NumTotalVerticesSimplied, 0);
     }
 }
 

@@ -81,4 +81,4 @@ private:
     UXSPBatchMeshComponent* XSPBatchMeshComponent;
 };
 
-//typedef UXSPBatchMeshComponent MyComponentClass;
+typedef UXSPBatchMeshComponent MyComponentClass;

@@ -301,17 +301,19 @@ bool UXSPCustomMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) c
 
 void UXSPCustomMeshComponent::BuildMesh_AnyThread()
 {
+    int32 NumIndicesTotal = 0;
     const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     for (int32 Dbid : DbidArray)
     {
         NumVerticesTotal += NodeDataArray[Dbid]->MeshPositionArray.Num();
-        EndFaceIndexArray.Add(NumVerticesTotal / 3 - 1);
+        NumIndicesTotal += NodeDataArray[Dbid]->MeshIndexArray.Num();
+        EndFaceIndexArray.Add(NumIndicesTotal / 3 - 1);
     }
 
     CustomMesh = MakeShareable(new FXSPCustomMesh(GMaxRHIFeatureLevel));
 
     TArray<uint32> IndexArray;
-    IndexArray.SetNum(NumVerticesTotal);
+    IndexArray.SetNum(NumIndicesTotal);
 
     CustomMesh->PositionVertexBuffer.Init(NumVerticesTotal, false);
     void* PositionData = CustomMesh->PositionVertexBuffer.GetVertexData();
@@ -321,10 +323,12 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
 
     FBox3f BoundingBox;
     BoundingBox.Init();
-    uint32 Index = 0;
+    int32 VertexIndex = 0;
+    int32 IndexIndex = 0;
     uint32 Offset = 0;
     for (int32 Dbid : DbidArray)
     {
+        int32 VertexOffset = VertexIndex;
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
 
         FMemory::Memcpy(&((uint8*)PositionData)[Offset * PositionStride], NodeDataArray[Dbid]->MeshPositionArray.GetData(), PositionStride * NumVertices);
@@ -333,13 +337,15 @@ void UXSPCustomMeshComponent::BuildMesh_AnyThread()
         for (int32 i = 0; i < NumVertices; i++)
         {
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
-
-            CustomMesh->StaticMeshVertexBuffer.SetVertexTangents(Index, FVector3f::ZeroVector, FVector3f::ZeroVector, NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f());
-
-            IndexArray[Index] = Index;
-            Index++;
+            CustomMesh->StaticMeshVertexBuffer.SetVertexTangents(VertexIndex, FVector3f::ZeroVector, FVector3f::ZeroVector, NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f());
+            VertexIndex++;
         }
-
+        int32 NumIndices = NodeDataArray[Dbid]->MeshIndexArray.Num();
+        for (int32 i = 0; i < NumIndices; i++)
+        {
+            IndexArray[IndexIndex] = NodeDataArray[Dbid]->MeshIndexArray[i] + VertexOffset;
+            IndexIndex++;
+        }
     }
     CustomMesh->IndexBuffer.SetIndices(IndexArray, (IndexArray.Num() <= (int32)MAX_uint16 + 1) ? EIndexBufferStride::Type::Force16Bit : EIndexBufferStride::Type::Force32Bit);
     

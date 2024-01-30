@@ -146,11 +146,13 @@ bool UXSPBatchMeshComponent::GetPhysicsTriMeshData(FTriMeshCollisionData* Collis
 
 void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
 {
+    int32 NumIndicesTotal = 0;
     const TArray<FXSPNodeData*>& NodeDataArray = OwnerActor->GetNodeDataArray();
     for (int32 Dbid : DbidArray)
     {
         NumVerticesTotal += NodeDataArray[Dbid]->MeshPositionArray.Num();
-        EndFaceIndexArray.Add(NumVerticesTotal / 3 - 1);
+        NumIndicesTotal += NodeDataArray[Dbid]->MeshIndexArray.Num();
+        EndFaceIndexArray.Add(NumIndicesTotal / 3 - 1);
     }
 
     BuildingStaticMesh->SetFlags(RF_Transient | RF_DuplicateTransient | RF_TextExportTransient);
@@ -167,22 +169,28 @@ void UXSPBatchMeshComponent::BuildStaticMesh_AnyThread()
     TArray<FStaticMeshBuildVertex> StaticMeshBuildVertices;
     StaticMeshBuildVertices.SetNum(NumVerticesTotal);
     TArray<uint32> IndexArray;
-    IndexArray.SetNum(NumVerticesTotal);
+    IndexArray.SetNum(NumIndicesTotal);
     FBox3f BoundingBox;
     BoundingBox.Init();
-    int32 Index = 0;
+    int32 VertexIndex = 0;
+    int32 IndexIndex = 0;
     for (int32 Dbid : DbidArray)
     {
+        int32 VertexOffset = VertexIndex;
         int32 NumVertices = NodeDataArray[Dbid]->MeshPositionArray.Num();
         for (int32 i = 0; i < NumVertices; i++)
         {
             BoundingBox += NodeDataArray[Dbid]->MeshPositionArray[i];
-            StaticMeshBuildVertices[Index].Position = NodeDataArray[Dbid]->MeshPositionArray[i];
-            StaticMeshBuildVertices[Index].TangentZ = NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f();
-            //StaticMeshBuildVertices[Index].Color = FColor::White;
-            StaticMeshBuildVertices[Index].UVs[0].Set(0, 0);
-            IndexArray[Index] = Index;
-            Index++;
+            StaticMeshBuildVertices[VertexIndex].Position = NodeDataArray[Dbid]->MeshPositionArray[i];
+            StaticMeshBuildVertices[VertexIndex].TangentZ = NodeDataArray[Dbid]->MeshNormalArray[i].ToFVector3f();
+            StaticMeshBuildVertices[VertexIndex].UVs[0].Set(0, 0);
+            VertexIndex++;
+        }
+        int32 NumIndices = NodeDataArray[Dbid]->MeshIndexArray.Num();
+        for (int32 i = 0; i < NumIndices; i++)
+        {
+            IndexArray[IndexIndex] = NodeDataArray[Dbid]->MeshIndexArray[i] + VertexOffset;
+            IndexIndex++;
         }
     }
     StaticMeshLODResources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices, !bXSPDiscardCPUDataAfterUpload);
