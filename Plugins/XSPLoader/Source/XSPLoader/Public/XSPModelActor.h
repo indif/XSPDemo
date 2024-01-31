@@ -99,6 +99,9 @@ private:
 	UPROPERTY()
 	UMaterialInterface* SourceMaterialTranslucent = nullptr;
 
+	UPROPERTY()
+	TArray<UMaterialInterface*> MaterialInstanceArray;
+
 	TMap<int32, TSharedPtr<FXSPSubModelActor>> SubModelActorMap;
 
 	bool bAsyncBuildWhenInitLoading = true;

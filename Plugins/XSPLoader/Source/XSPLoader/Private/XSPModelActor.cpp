@@ -331,6 +331,7 @@ UMaterialInstanceDynamic* AXSPModelActor::CreateMaterialInstanceDynamic(const FL
     MaterialInstanceDynamic->SetVectorParameterValue(TEXT("BaseColor"), BaseColor);
     MaterialInstanceDynamic->SetScalarParameterValue(TEXT("Roughness"), Roughness);
     MaterialInstanceDynamic->SetVectorParameterValue(TEXT("EmissiveColor"), EmissiveColor);
+    MaterialInstanceArray.Add(MaterialInstanceDynamic);
     return MaterialInstanceDynamic;
 }
 
