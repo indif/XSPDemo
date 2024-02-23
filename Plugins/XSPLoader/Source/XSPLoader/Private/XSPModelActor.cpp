@@ -131,6 +131,37 @@ FBox3f AXSPModelActor::GetNodeBoundingBox(int32 Dbid)
     return RecursiveComputeBoundingBox(NodeDataArray, Dbid);
 }
 
+namespace
+{
+    int32 RecursiveGetMaxChildDbid(TArray<FXSPNodeData*>& NodeDataArray, int32 Dbid)
+    {
+        if (NodeDataArray[Dbid]->NumChildren == 0)
+            return Dbid;
+        int32 MaxDirectChildDbid = Dbid + NodeDataArray[Dbid]->NumChildren;
+        return RecursiveGetMaxChildDbid(NodeDataArray, MaxDirectChildDbid);
+    }
+}
+
+bool AXSPModelActor::CheckRelation(int32 Dbid, int32 ChildDbid)
+{
+    if (EState::Empty == State || EState::ReadingFile == State)
+    {
+        checkNoEntry();
+        return false;
+    }
+
+    if (Dbid < 0 || Dbid >= NodeDataArray.Num() || 
+        ChildDbid < 0 || ChildDbid >= NodeDataArray.Num() ||
+        ChildDbid <= Dbid)
+        return false;
+
+    int32 MaxChildDbid = RecursiveGetMaxChildDbid(NodeDataArray, Dbid);
+    if (ChildDbid <= MaxChildDbid)
+        return true;
+
+    return false;
+}
+
 void AXSPModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthStencilValue)
 {
     if (!UpdateOperation())

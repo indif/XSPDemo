@@ -34,6 +34,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FBox3f GetNodeBoundingBox(int32 Dbid);
 
+	//检查节点间是否存在父子关系（包括递归的子节点）
+	UFUNCTION(BlueprintPure)
+	bool CheckRelation(int32 Dbid, int32 ChildDbid);
+
 	//设置渲染指定对象的自定义模板值(以便在后处理材质中做描边等屏幕效果)
 	UFUNCTION(BlueprintCallable)
 	void SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthStencilValue);
