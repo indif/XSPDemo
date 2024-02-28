@@ -284,7 +284,7 @@ uint32_t Cycle3(uint32_t Value, uint32_t Offset)
 	return Value - Value % 3 + (Value + Offset) % 3;
 }
 
-FMeshSimplifier1::FMeshSimplifier1(float* InVerts, uint32_t InNumVerts, uint32_t* InIndexes, uint32_t InNumIndexes, int32_t* InMaterialIndexes, uint32_t InNumAttributes)
+FMeshSimplifier::FMeshSimplifier(float* InVerts, uint32_t InNumVerts, uint32_t* InIndexes, uint32_t InNumIndexes, int32_t* InMaterialIndexes, uint32_t InNumAttributes)
 	: NumVerts(InNumVerts)
 	, NumIndexes(InNumIndexes)
 	, NumAttributes(InNumAttributes)
@@ -339,7 +339,7 @@ FMeshSimplifier1::FMeshSimplifier1(float* InVerts, uint32_t InNumVerts, uint32_t
 	}
 }
 
-void FMeshSimplifier1::LockPosition(const FVector3f& Position)
+void FMeshSimplifier::LockPosition(const FVector3f& Position)
 {
 	ForAllCorners(Position,
 		[this](uint32_t Corner)
@@ -348,7 +348,7 @@ void FMeshSimplifier1::LockPosition(const FVector3f& Position)
 		});
 }
 
-bool FMeshSimplifier1::AddUniquePair(FPair& Pair, uint32_t PairIndex)
+bool FMeshSimplifier::AddUniquePair(FPair& Pair, uint32_t PairIndex)
 {
 	uint32_t Hash0 = HashPosition(Pair.Position0);
 	uint32_t Hash1 = HashPosition(Pair.Position1);
@@ -378,7 +378,7 @@ bool FMeshSimplifier1::AddUniquePair(FPair& Pair, uint32_t PairIndex)
 	return true;
 }
 
-void FMeshSimplifier1::CalcTriQuadric(uint32_t TriIndex)
+void FMeshSimplifier::CalcTriQuadric(uint32_t TriIndex)
 {
 	uint32_t i0 = Indexes[TriIndex * 3 + 0];
 	uint32_t i1 = Indexes[TriIndex * 3 + 1];
@@ -395,7 +395,7 @@ void FMeshSimplifier1::CalcTriQuadric(uint32_t TriIndex)
 		NumAttributes);
 }
 
-void FMeshSimplifier1::CalcEdgeQuadric(uint32_t EdgeIndex)
+void FMeshSimplifier::CalcEdgeQuadric(uint32_t EdgeIndex)
 {
 	uint32_t TriIndex = EdgeIndex / 3;
 	if (TriRemoved[TriIndex])
@@ -468,7 +468,7 @@ void FMeshSimplifier1::CalcEdgeQuadric(uint32_t EdgeIndex)
 	EdgeQuadricsValid[EdgeIndex] = true;
 }
 
-void FMeshSimplifier1::GatherAdjTris(const FVector3f& Position, uint32_t Flag, std::vector<uint32_t>& AdjTris, int32_t& VertDegree, uint32_t& FlagsUnion)
+void FMeshSimplifier::GatherAdjTris(const FVector3f& Position, uint32_t Flag, std::vector<uint32_t>& AdjTris, int32_t& VertDegree, uint32_t& FlagsUnion)
 {
 	struct FWedgeVert
 	{
@@ -539,7 +539,7 @@ void FMeshSimplifier1::GatherAdjTris(const FVector3f& Position, uint32_t Flag, s
 		});
 }
 
-float FMeshSimplifier1::EvaluateMerge(const FVector3f& Position0, const FVector3f& Position1, bool bMoveVerts)
+float FMeshSimplifier::EvaluateMerge(const FVector3f& Position0, const FVector3f& Position1, bool bMoveVerts)
 {
 	//check( Position0 != Position1 );
 	if (Position0 == Position1)
@@ -928,7 +928,7 @@ float FMeshSimplifier1::EvaluateMerge(const FVector3f& Position0, const FVector3
 	return Error;
 }
 
-void FMeshSimplifier1::BeginMovePosition(const FVector3f& Position)
+void FMeshSimplifier::BeginMovePosition(const FVector3f& Position)
 {
 	uint32_t Hash = HashPosition(Position);
 
@@ -958,7 +958,7 @@ void FMeshSimplifier1::BeginMovePosition(const FVector3f& Position)
 		});
 }
 
-void FMeshSimplifier1::EndMovePositions()
+void FMeshSimplifier::EndMovePositions()
 {
 	for (uint32_t VertIndex : MovedVerts)
 	{
@@ -986,7 +986,7 @@ void FMeshSimplifier1::EndMovePositions()
 	MovedPairs.clear();
 }
 
-uint32_t FMeshSimplifier1::CornerIndexMoved(uint32_t TriIndex) const
+uint32_t FMeshSimplifier::CornerIndexMoved(uint32_t TriIndex) const
 {
 	uint32_t IndexMoved = 3;
 	for (uint32_t CornerIndex = 0; CornerIndex < 3; CornerIndex++)
@@ -1004,7 +1004,7 @@ uint32_t FMeshSimplifier1::CornerIndexMoved(uint32_t TriIndex) const
 	return IndexMoved;
 }
 
-bool FMeshSimplifier1::TriWillInvert(uint32_t TriIndex, const FVector3f& NewPosition) const
+bool FMeshSimplifier::TriWillInvert(uint32_t TriIndex, const FVector3f& NewPosition) const
 {
 	uint32_t IndexMoved = CornerIndexMoved(TriIndex);
 
@@ -1037,7 +1037,7 @@ bool FMeshSimplifier1::TriWillInvert(uint32_t TriIndex, const FVector3f& NewPosi
 	return false;
 }
 
-void FMeshSimplifier1::FixUpTri(uint32_t TriIndex)
+void FMeshSimplifier::FixUpTri(uint32_t TriIndex)
 {
 	const FVector3f& p0 = GetPosition(Indexes[TriIndex * 3 + 0]);
 	const FVector3f& p1 = GetPosition(Indexes[TriIndex * 3 + 1]);
@@ -1088,7 +1088,7 @@ void FMeshSimplifier1::FixUpTri(uint32_t TriIndex)
 	}
 }
 
-bool FMeshSimplifier1::IsDuplicateTri(uint32_t TriIndex) const
+bool FMeshSimplifier::IsDuplicateTri(uint32_t TriIndex) const
 {
 	uint32_t i0 = Indexes[TriIndex * 3 + 0];
 	uint32_t i1 = Indexes[TriIndex * 3 + 1];
@@ -1109,7 +1109,7 @@ bool FMeshSimplifier1::IsDuplicateTri(uint32_t TriIndex) const
 	return false;
 }
 
-void FMeshSimplifier1::SetVertIndex(uint32_t Corner, uint32_t NewVertIndex)
+void FMeshSimplifier::SetVertIndex(uint32_t Corner, uint32_t NewVertIndex)
 {
 	uint32_t& VertIndex = Indexes[Corner];
 	if (VertIndex == NewVertIndex)
@@ -1130,7 +1130,7 @@ void FMeshSimplifier1::SetVertIndex(uint32_t Corner, uint32_t NewVertIndex)
 }
 
 // Remove identical valued verts.
-void FMeshSimplifier1::RemoveDuplicateVerts(uint32_t Corner)
+void FMeshSimplifier::RemoveDuplicateVerts(uint32_t Corner)
 {
 	uint32_t& VertIndex = Indexes[Corner];
 	float* VertData = &Verts[(3 + NumAttributes) * VertIndex];
@@ -1151,7 +1151,7 @@ void FMeshSimplifier1::RemoveDuplicateVerts(uint32_t Corner)
 	}
 }
 
-float FMeshSimplifier1::Simplify(
+float FMeshSimplifier::Simplify(
 	uint32_t TargetNumVerts, uint32_t TargetNumTris, float TargetError,
 	uint32_t LimitNumVerts, uint32_t LimitNumTris, float LimitError)
 {
@@ -1229,7 +1229,7 @@ float FMeshSimplifier1::Simplify(
 	return MaxError;
 }
 
-void FMeshSimplifier1::Compact()
+void FMeshSimplifier::Compact()
 {
 	uint32_t OutputVertIndex = 0;
 	for (uint32_t VertIndex = 0; VertIndex < NumVerts; VertIndex++)
@@ -1394,7 +1394,7 @@ bool SimplyMesh(const std::vector<FVector3f>& InPositions, float PercentTriangle
 			std::vector<int32_t> MaterialIndexes;
 			MaterialIndexes.insert(MaterialIndexes.end(), NumTris, 0);
 
-			FMeshSimplifier1 Simplifier((float*)Verts.data(), Verts.size(), Indexes.data(), Indexes.size(), MaterialIndexes.data(), NumAttributes);
+			FMeshSimplifier Simplifier((float*)Verts.data(), Verts.size(), Indexes.data(), Indexes.size(), MaterialIndexes.data(), NumAttributes);
 
 			Simplifier.SetAttributeWeights(AttributeWeights);
 			Simplifier.SetCorrectAttributes(CorrectAttributes);

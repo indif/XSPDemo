@@ -6,7 +6,7 @@
 
 #include "MeshBuild.h"
 #include "OverlappingCorners.h"
-#include "MeshSimplify1/XSPMeshSimplify.h"
+#include "MeshSimplify/XSPMeshSimplify.h"
 
 #include "XSPStat.h"
 
