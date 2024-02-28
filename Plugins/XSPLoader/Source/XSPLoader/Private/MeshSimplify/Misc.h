@@ -4,19 +4,18 @@
 #include <algorithm>
 #include <malloc.h>
 
-namespace XSP
+namespace XspMeshSimp
 {
 
-#define PI 					(3.1415926535897932f)	/* Extra digits if needed: 3.1415926535897932384626433832795f */
-#define SMALL_NUMBER			(1.e-8f)
-#define KINDA_SMALL_NUMBER	(1.e-4f)
-#define BIG_NUMBER			(3.4e+38f)
-#define THRESH_POINTS_ARE_SAME			(0.00002f)	/* Two points are same if within this distance */
-#define THRESH_NORMALS_ARE_SAME			(0.00002f)	/* Two normal points are same if within this distance */
-#define MAX_flt			(3.402823466e+38F)
+#define XSM_SMALL_NUMBER			(1.e-8f)
+#define XSM_KINDA_SMALL_NUMBER	(1.e-4f)
+#define XSM_BIG_NUMBER			(3.4e+38f)
+#define XSM_THRESH_POINTS_ARE_SAME			(0.00002f)	/* Two points are same if within this distance */
+#define XSM_THRESH_NORMALS_ARE_SAME			(0.00002f)	/* Two normal points are same if within this distance */
+#define XSM_MAX_flt			(3.402823466e+38F)
 
     /**
-     * FMemory_Alloca/alloca implementation. This can't be a function, even FORCEINLINE'd because there's no guarantee that
+     * XSM_FMemory_Alloca/alloca implementation. This can't be a function, even FORCEINLINE'd because there's no guarantee that
      * the memory returned in a function will stick around for the caller to use.
      */
 #if PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS
@@ -25,7 +24,7 @@ namespace XSP
 #define __FMemory_Alloca_Func alloca
 #endif
 
-#define FMemory_Alloca(Size) ((Size==0) ? 0 : (void*)(((int32_t*)__FMemory_Alloca_Func(Size + 15) + 15) & ~15))
+#define XSM_FMemory_Alloca(Size) ((Size==0) ? 0 : (void*)(((int32_t*)__FMemory_Alloca_Func(Size + 15) + 15) & ~15))
 
 
     template< class T >
@@ -74,7 +73,7 @@ namespace XSP
             {
                 return *this;
             }
-            else if (SquareSum < SMALL_NUMBER)
+            else if (SquareSum < XSM_SMALL_NUMBER)
             {
                 return FVector3f(0, 0, 0);
             }
@@ -85,7 +84,7 @@ namespace XSP
         bool Normalize()
         {
             const float SquareSum = X * X + Y * Y + Z * Z;
-            if (SquareSum > SMALL_NUMBER)
+            if (SquareSum > XSM_SMALL_NUMBER)
             {
                 const float Scale = 1 / std::sqrt(SquareSum);
                 X *= Scale; Y *= Scale; Z *= Scale;

@@ -6,11 +6,10 @@
 
 #include "MeshBuild.h"
 #include "OverlappingCorners.h"
-#include "MeshSimplify/MeshSimplify.h"
+#include "MeshSimplify1/XSPMeshSimplify.h"
 
 #include "XSPStat.h"
 
-#include "MeshSimplify1/MeshSimplify1.h"
 
 bool bXSPEnableMeshClean = true;
 FAutoConsoleVariableRef CVarXSPEnableMeshClean(
@@ -152,35 +151,6 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
 
     if (bXSPSimplyRawMesh && NumMeshVertices >= XSPSimplyRawMeshMinVertices)
     {
-#if 0
-        TArray<FVector3f> Positions;
-        Positions.SetNumUninitialized(NumMeshVertices);
-        for (int32 i = 0; i < NumMeshVertices; i++)
-        {
-            Positions[i].Set(MeshVertexBuffer[i * 3 + 1] * 100, MeshVertexBuffer[i * 3 + 0] * 100, MeshVertexBuffer[i * 3 + 2] * 100);
-            InOutBoundingBox += Positions[i];
-        }
-        TArray<FVector3f> SimplifiedPositions;
-        TArray<FPackedNormal> SimplifiedNormals;
-        TArray<uint32> SimplifiedIndices;
-        if (SimplyMesh(Positions, XSPSimplyRawMeshPercentTriangles, XSPSimplyRawMeshPercentVertices, SimplifiedPositions, SimplifiedNormals, SimplifiedIndices))
-        {
-            PositionList.Append(SimplifiedPositions);
-            NormalList.Append(SimplifiedNormals);
-            IndexList.Append(SimplifiedIndices);
-            if (PositionOffset > 0)
-            {
-                for (int32 i = 0; i < SimplifiedIndices.Num(); i++)
-                {
-                    IndexList[IndexOffset + i] += PositionOffset;
-                }
-            }
-            
-            INC_DWORD_STAT(STAT_XSPLoader_NumRawMeshSimplified);
-            INC_DWORD_STAT_BY(STAT_XSPLoader_NumTotalVerticesSimplied, Positions.Num()-SimplifiedPositions.Num());
-            return;
-        }
-#else
         std::vector<float> Positions;
         Positions.resize(BufferLength);
         for (int32 i = 0; i < NumMeshVertices; i++)
@@ -192,7 +162,7 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
         std::vector<float> SimplifiedPositions;
         std::vector<float> SimplifiedNormals;
         std::vector<uint32_t> SimplifiedIndices;
-        if (XSP::SimplyMesh(Positions, XSPSimplyRawMeshPercentTriangles, XSPSimplyRawMeshPercentVertices, SimplifiedPositions, SimplifiedNormals, SimplifiedIndices))
+        if (XSPSimplifyMesh(Positions, XSPSimplyRawMeshPercentTriangles, XSPSimplyRawMeshPercentVertices, SimplifiedPositions, SimplifiedNormals, SimplifiedIndices))
         {
             int32 NumVertices = SimplifiedPositions.size()/3;
             PositionList.AddUninitialized(NumVertices);
@@ -214,7 +184,6 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
             INC_DWORD_STAT_BY(STAT_XSPLoader_NumTotalVerticesSimplied, NumMeshVertices - NumVertices);
             return;
         }
-#endif
     }
 
     {
@@ -850,190 +819,3 @@ void ResolveNodeData(FXSPNodeData& NodeData, FXSPNodeData* ParentNodeData)
     NodeData.PrimitiveArray.Empty();
 }
 
-
-void CorrectAttributes(float* Attributes)
-{
-    FVector3f& Normal = *reinterpret_cast<FVector3f*>(Attributes);
-    Normal.Normalize();
-}
-
-struct FVertSimp
-{
-    FVector3f			Position;
-    FVector3f			Normal;
-    bool Equals(const FVertSimp& a) const
-    {
-        if (!PointsEqual(Position, a.Position) ||
-            !NormalsEqual(Normal, a.Normal))
-        {
-            return false;
-        }
-        return true;
-    }
-};
-
-bool SimplyMesh(const TArray<FVector3f>& InPositions, float PercentTriangles, float PercentVertices, TArray<FVector3f>& OutPositions, TArray<FPackedNormal>& OutNormals, TArray<uint32>& OutIndices)
-{
-    uint32 NumVertices = InPositions.Num();
-    TArray<uint32> InIndices;
-    InIndices.SetNumUninitialized(NumVertices);
-    for (uint32 i = 0; i < NumVertices; i++)
-        InIndices[i] = i;
-
-    float OverlappingThreshold = THRESH_POINTS_ARE_SAME;
-    FOverlappingCorners OverlappingCorners(InPositions, InIndices, OverlappingThreshold);
-
-    TArray<FVertSimp> Verts;
-    TArray<uint32> Indexes;
-    int32 NumTriangles = NumVertices / 3;
-    int32 NumWedges = NumTriangles * 3;
-
-    TMap<int32, int32> VertsMap;
-
-    float SurfaceArea = 0.0f;
-    int32 WedgeIndex = 0;
-    for (int32 i = 0; i < NumTriangles; i++)
-    {
-        FVector3f CornerPositions[3];
-        for (int32 TriVert = 0; TriVert < 3; ++TriVert)
-        {
-            CornerPositions[TriVert] = InPositions[i * 3 + TriVert];
-        }
-
-        if (PointsEqual(CornerPositions[0], CornerPositions[1]) ||
-            PointsEqual(CornerPositions[0], CornerPositions[2]) ||
-            PointsEqual(CornerPositions[1], CornerPositions[2]))
-        {
-            WedgeIndex += 3;
-            continue;
-        }
-
-        FVector3f TriNormal;
-        {
-            const FVector3f Edge21 = CornerPositions[1] - CornerPositions[2];
-            const FVector3f Edge20 = CornerPositions[0] - CornerPositions[1];
-            TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
-            TriNormal.Normalize();
-        }
-
-        int32 VertexIndices[3];
-        for (int32 TriVert = 0; TriVert < 3; ++TriVert, ++WedgeIndex)
-        {
-            FVertSimp NewVert;
-            NewVert.Position = CornerPositions[TriVert];
-            NewVert.Normal = TriNormal;
-
-            const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(WedgeIndex);
-
-            int32 Index = INDEX_NONE;
-            for (int32 k = 0; k < DupVerts.Num(); k++)
-            {
-                if (DupVerts[k] >= WedgeIndex)
-                {
-                    break;
-                }
-
-                int32* Location = VertsMap.Find(DupVerts[k]);
-                if (Location)
-                {
-                    FVertSimp& FoundVert = Verts[*Location];
-
-                    if (NewVert.Equals(FoundVert))
-                    {
-                        Index = *Location;
-                        break;
-                    }
-                }
-            }
-            if (Index == INDEX_NONE)
-            {
-                Index = Verts.Add(NewVert);
-                VertsMap.Add(WedgeIndex, Index);
-            }
-            VertexIndices[TriVert] = Index;
-        }
-        if (VertexIndices[0] == VertexIndices[1] ||
-            VertexIndices[1] == VertexIndices[2] ||
-            VertexIndices[0] == VertexIndices[2])
-        {
-            continue;
-        }
-
-        {
-            FVector3f Edge01 = CornerPositions[1] - CornerPositions[0];
-            FVector3f Edge20 = CornerPositions[0] - CornerPositions[2];
-
-            float TriArea = 0.5f * (Edge01 ^ Edge20).Size();
-            SurfaceArea += TriArea;
-        }
-
-        Indexes.Add(VertexIndices[0]);
-        Indexes.Add(VertexIndices[1]);
-        Indexes.Add(VertexIndices[2]);
-    }
-
-    int32 NumVerts = Verts.Num();
-    int32 NumIndexes = Indexes.Num();
-    int32 NumTris = NumIndexes / 3;
-
-    int32 TargetNumTris = FMath::CeilToInt(NumTris * PercentTriangles);
-    int32 TargetNumVerts = FMath::CeilToInt(NumVerts * PercentVertices);
-
-    TargetNumTris = FMath::Max(TargetNumTris, 2);
-    TargetNumVerts = FMath::Max(TargetNumVerts, 4);
-
-    {
-        if (TargetNumVerts < NumVerts || TargetNumTris < NumTris)
-        {
-            const uint32 NumAttributes = (sizeof(FVertSimp) - sizeof(FVector3f)) / sizeof(float);
-            float AttributeWeights[NumAttributes] =
-            {
-                16.0f, 16.0f, 16.0f// Normal
-            };
-
-            TArray<int32> MaterialIndexes;
-            MaterialIndexes.AddZeroed(NumTris);
-
-            FMeshSimplifier Simplifier((float*)Verts.GetData(), Verts.Num(), Indexes.GetData(), Indexes.Num(), MaterialIndexes.GetData(), NumAttributes);
-
-            Simplifier.SetAttributeWeights(AttributeWeights);
-            Simplifier.SetCorrectAttributes(CorrectAttributes);
-            Simplifier.SetEdgeWeight(512.0f);
-            Simplifier.SetLimitErrorToSurfaceArea(false);
-
-            Simplifier.DegreePenalty = 100.0f;
-            Simplifier.InversionPenalty = 1000000.0f;
-
-            float MaxErrorSqr = Simplifier.Simplify(TargetNumVerts, TargetNumTris, 0.0f, 4, 2, MAX_flt);
-
-            if (Simplifier.GetRemainingNumVerts() == 0 || Simplifier.GetRemainingNumTris() == 0)
-            {
-                return false;
-            }
-
-            Simplifier.Compact();
-
-            Verts.SetNum(Simplifier.GetRemainingNumVerts());
-            Indexes.SetNum(Simplifier.GetRemainingNumTris() * 3);
-
-            NumVerts = Simplifier.GetRemainingNumVerts();
-            NumTris = Simplifier.GetRemainingNumTris();
-            NumIndexes = NumTris * 3;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    OutPositions.SetNumUninitialized(NumVerts);
-    OutNormals.SetNumUninitialized(NumVerts);
-    for (int32 i = 0; i < NumVerts; i++)
-    {
-        OutPositions[i] = Verts[i].Position;
-        OutNormals[i] = Verts[i].Normal;
-    }
-    OutIndices = Indexes;
-
-    return true;
-}

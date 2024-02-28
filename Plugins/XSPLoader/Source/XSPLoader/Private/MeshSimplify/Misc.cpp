@@ -2,7 +2,7 @@
 #include <cstring>
 #include <algorithm>
 
-namespace XSP
+namespace XspMeshSimp
 {
 
 	static int32_t const gsLeadingBitTable[32] =

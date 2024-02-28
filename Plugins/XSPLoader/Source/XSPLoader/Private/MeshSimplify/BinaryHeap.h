@@ -11,7 +11,7 @@
 //#include "Templates/IsSigned.h"
 #include "Misc.h"
 
-namespace XSP
+namespace XspMeshSimp
 {
 	/*-----------------------------------------------------------------------------
 		Binary Heap, used to index another data structure.

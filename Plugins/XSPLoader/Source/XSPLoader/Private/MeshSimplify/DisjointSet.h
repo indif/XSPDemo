@@ -5,7 +5,7 @@
 //#include "CoreMinimal.h"
 #include <vector>
 
-namespace XSP
+namespace XspMeshSimp
 {
 
 	class FDisjointSet

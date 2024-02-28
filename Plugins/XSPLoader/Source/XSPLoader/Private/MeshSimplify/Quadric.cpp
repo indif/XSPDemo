@@ -1,32 +1,36 @@
 // Copyright (C) 2009 Nine Realms, Inc
 
 #include "Quadric.h"
-
-DEFINE_LOG_CATEGORY_STATIC( LogQuadric, Log, All );
+#include "Misc.h"
+#include <utility>
+#include <cstring>
+#include <cmath>
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #pragma float_control( precise, on, push )
 #pragma warning(disable:6011)
 #endif
 
+namespace XspMeshSimp
+{
 // LUP factorization using Doolittle's method with partial pivoting
 template< typename T >
-bool LUPFactorize( T* RESTRICT A, uint32* RESTRICT Pivot, uint32 Size, T Epsilon )
+bool LUPFactorize( T* __restrict A, uint32_t* __restrict Pivot, uint32_t Size, T Epsilon )
 {
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 	{
 		Pivot[i] = i;
 	}
 
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 	{
 		// Find largest pivot in column
-		T		MaxValue = FMath::Abs( A[ Size * i + i ] );
-		uint32	MaxIndex = i;
+		T		MaxValue = std::abs( A[ Size * i + i ] );
+		uint32_t	MaxIndex = i;
 
-		for( uint32 j = i + 1; j < Size; j++ )
+		for( uint32_t j = i + 1; j < Size; j++ )
 		{
-			T AbsValue = FMath::Abs( A[ Size * j + i ] );
+			T AbsValue = std::abs( A[ Size * j + i ] );
 			if( AbsValue > MaxValue )
 			{
 				MaxValue = AbsValue;
@@ -43,18 +47,18 @@ bool LUPFactorize( T* RESTRICT A, uint32* RESTRICT Pivot, uint32 Size, T Epsilon
 		// Swap rows pivoting MaxValue to the diagonal
 		if( MaxIndex != i )
 		{
-			Swap( Pivot[i], Pivot[ MaxIndex ] );
+			std::swap(Pivot[i], Pivot[MaxIndex]);//Swap( Pivot[i], Pivot[ MaxIndex ] );
 
-			for( uint32 j = 0; j < Size; j++ )
-				Swap( A[ Size * i + j ], A[ Size * MaxIndex + j ] );
+			for( uint32_t j = 0; j < Size; j++ )
+				std::swap(A[Size * i + j], A[Size * MaxIndex + j]);//Swap( A[ Size * i + j ], A[ Size * MaxIndex + j ] );
 		}
 
 		// Gaussian elimination
-		for( uint32 j = i + 1; j < Size; j++ )
+		for( uint32_t j = i + 1; j < Size; j++ )
 		{
 			A[ Size * j + i ] /= A[ Size * i + i ];
 
-			for( uint32 k = i + 1; k < Size; k++ )
+			for( uint32_t k = i + 1; k < Size; k++ )
 				A[ Size * j + k ] -= A[ Size * j + i ] * A[ Size * i + k ];
 		}
 	}
@@ -64,19 +68,19 @@ bool LUPFactorize( T* RESTRICT A, uint32* RESTRICT Pivot, uint32 Size, T Epsilon
 
 // Solve system of equations A*x = b
 template< typename T >
-void LUPSolve( const T* RESTRICT LU, const uint32* RESTRICT Pivot, uint32 Size, const T* RESTRICT b, T* RESTRICT x )
+void LUPSolve( const T* __restrict LU, const uint32_t* __restrict Pivot, uint32_t Size, const T* __restrict b, T* __restrict x )
 {
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 	{
 		x[i] = b[ Pivot[i] ];
 
-		for( uint32 j = 0; j < i; j++ )
+		for( uint32_t j = 0; j < i; j++ )
 			x[i] -= LU[ Size * i + j ] * x[j];
 	}
 
-	for( int32 i = Size - 1; i >= 0; i-- )
+	for( int32_t i = Size - 1; i >= 0; i-- )
 	{
-		for( uint32 j = i + 1; j < Size; j++ )
+		for( uint32_t j = i + 1; j < Size; j++ )
 			x[i] -= LU[ Size * i + j ] * x[j];
 
 		// Diagonal was filled with max values, all greater than Epsilon
@@ -86,21 +90,22 @@ void LUPSolve( const T* RESTRICT LU, const uint32* RESTRICT Pivot, uint32 Size, 
 
 // Newton's method iterative refinement.
 template< typename T >
-bool LUPSolveIterate( const T* RESTRICT A, const T* RESTRICT LU, const uint32* RESTRICT Pivot, uint32 Size, const T* RESTRICT b, T* RESTRICT x )
+bool LUPSolveIterate( const T* __restrict A, const T* __restrict LU, const uint32_t* __restrict Pivot, uint32_t Size, const T* __restrict b, T* __restrict x )
 {
-	T* Residual = (T*)FMemory_Alloca( 2 * Size * sizeof(T) );
+	//T* Residual = (T*)XSM_FMemory_Alloca( 2 * Size * sizeof(T) );
+	T* Residual = (T*)_alloca(2 * Size * sizeof(T));
 	T* Error = Residual + Size;
 
 	LUPSolve( LU, Pivot, Size, b, x );
 
 	bool bCloseEnough = false;
-	for( uint32 k = 0; k < 4; k++ )
+	for( uint32_t k = 0; k < 4; k++ )
 	{
-		for( uint32 i = 0; i < Size; i++ )
+		for( uint32_t i = 0; i < Size; i++ )
 		{
 			Residual[i] = b[i];
 
-			for( uint32 j = 0; j < Size; j++ )
+			for( uint32_t j = 0; j < Size; j++ )
 			{
 				Residual[i] -= A[ Size * i + j ] * x[j];
 			}
@@ -109,13 +114,13 @@ bool LUPSolveIterate( const T* RESTRICT A, const T* RESTRICT LU, const uint32* R
 		LUPSolve( LU, Pivot, Size, Residual, Error );
 
 		T MeanSquaredError = 0.0;
-		for( uint32 i = 0; i < Size; i++ )
+		for( uint32_t i = 0; i < Size; i++ )
 		{
 			x[i] += Error[i];
 			MeanSquaredError += Error[i] * Error[i];
 		}
 
-		if( MeanSquaredError < KINDA_SMALL_NUMBER )
+		if( MeanSquaredError < XSM_KINDA_SMALL_NUMBER )
 		{
 			bCloseEnough = true;
 			break;
@@ -166,7 +171,7 @@ namespace JacobiSVD
 // Jacobi solver is modified version of code from ImathMatricAlgo.cpp
 
 template< typename T >
-inline void Update( T* RESTRICT A, T s, T tau, uint32 d1, uint32 d2 )
+inline void Update( T* __restrict A, T s, T tau, uint32_t d1, uint32_t d2 )
 {
 	const T nu1 = A[ d1 ];
 	const T nu2 = A[ d2 ];
@@ -176,9 +181,9 @@ inline void Update( T* RESTRICT A, T s, T tau, uint32 d1, uint32 d2 )
 
 template< typename T >
 bool Rotation3(
-	T* RESTRICT A,
-	T* RESTRICT V,
-	T* RESTRICT Z,
+	T* __restrict A,
+	T* __restrict V,
+	T* __restrict Z,
 	const T tol,
 	int j, int k, int L )
 {
@@ -189,7 +194,7 @@ bool Rotation3(
 	const T mu1 = z - x;
 	const T mu2 = 2.0 * y;
 
-	if( FMath::Abs( mu2 ) <= tol * FMath::Abs( mu1 ) )
+	if( std::abs( mu2 ) <= tol * std::abs( mu1 ) )
 	{
 		// We've decided that the off-diagonal entries are already small
 		// enough, so we'll set them to zero.  This actually appears to result
@@ -200,8 +205,8 @@ bool Rotation3(
 	}
 
     const T rho = mu1 / mu2;
-	const T t = ( rho < 0.0 ? -1.0 : 1.0 ) / ( FMath::Abs( rho ) + FMath::Sqrt( 1.0 + rho * rho ) );
-	const T c = 1.0 / FMath::Sqrt( 1.0 + t * t );
+	const T t = ( rho < 0.0 ? -1.0 : 1.0 ) / ( std::abs( rho ) + std::sqrt( 1.0 + rho * rho ) );
+	const T c = 1.0 / std::sqrt( 1.0 + t * t );
 	const T s = c * t;
 	const T tau = s / ( 1.0 + c );
 	const T h = t * y;
@@ -218,7 +223,7 @@ bool Rotation3(
 		L < k ? 3*L + k : 3*k + L );
 
 	// Rotate right
-	for( uint32 i = 0; i < 3; i++ )
+	for( uint32_t i = 0; i < 3; i++ )
 	{
 		Update( V, s, tau,
 			3*i + j,
@@ -230,9 +235,9 @@ bool Rotation3(
 
 template< typename T >
 bool Rotation4(
-	T* RESTRICT A,
-	T* RESTRICT V,
-	T* RESTRICT Z,
+	T* __restrict A,
+	T* __restrict V,
+	T* __restrict Z,
 	const T tol,
 	int j, int k, int L1, int L2 )
 {
@@ -246,15 +251,15 @@ bool Rotation4(
 	// Let's see if rho^(-1) = mu2 / mu1 is less than tol
 	// This test also checks if rho^2 will overflow 
 	// when tol^(-1) < sqrt(limits<T>::max()).
-	if( FMath::Abs( mu2 ) <= tol * FMath::Abs( mu1 ) )
+	if( std::abs( mu2 ) <= tol * std::abs( mu1 ) )
 	{
 		A[ 4*j + k ] = 0.0;
 		return false;
 	}
 
 	const T rho = mu1 / mu2;
-	const T t = ( rho < 0.0 ? -1.0 : 1.0 ) / ( FMath::Abs( rho ) + FMath::Sqrt( 1.0 + rho * rho ) );
-	const T c = 1.0 / FMath::Sqrt( 1.0 + t * t );
+	const T t = ( rho < 0.0 ? -1.0 : 1.0 ) / ( std::abs( rho ) + std::sqrt( 1.0 + rho * rho ) );
+	const T c = 1.0 / std::sqrt( 1.0 + t * t );
 	const T s = c * t;
 	const T tau = s / ( 1.0 + c );
 	const T h = t * y;
@@ -274,7 +279,7 @@ bool Rotation4(
 		L2 < k ? 4*L2 + k : 4*k + L2 );
 
 	// Rotate right
-	for( uint32 i = 0; i < 4; i++ )
+	for( uint32_t i = 0; i < 4; i++ )
 	{
 		Update( V, s, tau,
 			4*i + j,
@@ -285,24 +290,24 @@ bool Rotation4(
 }
 
 template< typename T >
-inline T MaxOffDiagSymm( T* RESTRICT A, uint32 Size )
+inline T MaxOffDiagSymm( T* __restrict A, uint32_t Size )
 {
 	T Result = 0.0;
-	for( uint32 i = 0; i < Size; i++ )
-		for( uint32 j = i + 1; j < Size; j++ )
-			Result =  FMath::Max( Result,  FMath::Abs( A[ Size * i + j ] ) );
+	for( uint32_t i = 0; i < Size; i++ )
+		for( uint32_t j = i + 1; j < Size; j++ )
+			Result =  std::max( Result,  std::abs( A[ Size * i + j ] ) );
 
 	return Result;
 }
 
 template< typename T >
 void EigenSolver3(
-	T* RESTRICT A,
-	T* RESTRICT S,
-	T* RESTRICT V,
+	T* __restrict A,
+	T* __restrict S,
+	T* __restrict V,
 	const T tol )
 {
-	FMemory::Memzero( V, 9 * sizeof(T) );
+	std::memset(V, 0, 9 * sizeof(T));
 
 	for( int i = 0; i < 3; i++ )
 	{
@@ -343,12 +348,12 @@ void EigenSolver3(
 
 template< typename T >
 void EigenSolver4(
-	T* RESTRICT A,
-	T* RESTRICT S,
-	T* RESTRICT V,
+	T* __restrict A,
+	T* __restrict S,
+	T* __restrict V,
 	const T tol )
 {
-	FMemory::Memzero( V, 16 * sizeof(T) );
+	std::memset( V, 0, 16 * sizeof(T) );
 
 	for( int i = 0; i < 4; i++ )
 	{
@@ -387,15 +392,15 @@ void EigenSolver4(
 
 // Moore-Penrose pseudo inverse
 template< typename T >
-void PseudoInverse( T* RESTRICT S, uint32 Size, T Tolerance )
+void PseudoInverse( T* __restrict S, uint32_t Size, T Tolerance )
 {
 	QScalar MaxS = 0.0;
-	for( uint32 i = 0; i < Size; i++ )
-		MaxS = FMath::Max( MaxS, FMath::Abs( S[i] ) );
+	for( uint32_t i = 0; i < Size; i++ )
+		MaxS = std::max( MaxS, std::abs( S[i] ) );
 
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 	{
-		if( FMath::Abs( S[i] ) > MaxS * Tolerance )
+		if( std::abs( S[i] ) > MaxS * Tolerance )
 			S[i] = 1.0 / S[i];
 		else
 			S[i] = 0.0;
@@ -403,63 +408,22 @@ void PseudoInverse( T* RESTRICT S, uint32 Size, T Tolerance )
 }
 
 template< typename T >
-void PseudoSolve( const T* RESTRICT V, const T* RESTRICT S, uint32 Size, const T* RESTRICT b, T* RESTRICT x )
+void PseudoSolve( const T* __restrict V, const T* __restrict S, uint32_t Size, const T* __restrict b, T* __restrict x )
 {
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 		x[i] = 0.0;
 
-	for( uint32 i = 0; i < Size; i++ )
+	for( uint32_t i = 0; i < Size; i++ )
 	{
 		QScalar SVtbi = 0.0;
-		for( uint32 j = 0; j < Size; j++ )
+		for( uint32_t j = 0; j < Size; j++ )
 			SVtbi += V[ Size * j + i ] * b[j];
 
 		SVtbi *= S[i];
 
-		for( uint32 j = 0; j < Size; j++ )
+		for( uint32_t j = 0; j < Size; j++ )
 			x[j] += V[ Size * j + i ] * SVtbi;
 	}
-}
-
-// Newton's method iterative refinement.
-template< typename T >
-bool PseudoSolveIterate( const T* RESTRICT A, const T* RESTRICT V, const T* RESTRICT S, uint32 Size, const T* RESTRICT b, T* RESTRICT x )
-{
-	T* Residual = (T*)FMemory_Alloca( 2 * Size * sizeof(T) );
-	T* Error = Residual + Size;
-
-	PseudoSolve( V, S, Size, b, x );
-
-	bool bCloseEnough = false;
-	for( uint32 k = 0; k < 4; k++ )
-	{
-		for( uint32 i = 0; i < Size; i++ )
-		{
-			Residual[i] = b[i];
-
-			for( uint32 j = 0; j < Size; j++ )
-			{
-				Residual[i] -= A[ Size * i + j ] * x[j];
-			}
-		}
-
-		PseudoSolve( V, S, Size, Residual, Error );
-
-		T MeanSquaredError = 0.0;
-		for( uint32 i = 0; i < Size; i++ )
-		{
-			x[i] += Error[i];
-			MeanSquaredError += Error[i] * Error[i];
-		}
-
-		if( MeanSquaredError < KINDA_SMALL_NUMBER )
-		{
-			bCloseEnough = true;
-			break;
-		}
-	}
-
-	return bCloseEnough;
 }
 
 FEdgeQuadric::FEdgeQuadric( const QVec3 p0, const QVec3 p1, const float Weight )
@@ -467,7 +431,7 @@ FEdgeQuadric::FEdgeQuadric( const QVec3 p0, const QVec3 p1, const float Weight )
 	n = p1 - p0;
 
 	const QScalar Length = sqrt( n | n );
-	if( Length < (QScalar)SMALL_NUMBER )
+	if( Length < (QScalar)XSM_SMALL_NUMBER )
 	{
 		Zero();
 		return;
@@ -501,7 +465,7 @@ FQuadric::FQuadric( const QVec3 p0, const QVec3 p1, const QVec3 p2 )
 
 	const QScalar Length = sqrt( n | n );
 	const QScalar area = 0.5 * Length;
-	if( Length < (QScalar)SMALL_NUMBER )
+	if( Length < (QScalar)XSM_SMALL_NUMBER )
 	{
 		Zero();
 		return;
@@ -625,7 +589,7 @@ float FQuadric::Evaluate( const FVector3f& Point ) const
 	// Q(v) = vt*A*v + 2*bt*v + c
 	QScalar Q = vAv + 2.0 * btv + d2;
 	
-	if( Q < 0.0 || !FMath::IsFinite( Q ) )
+	if( Q < 0.0 || !std::isfinite( Q ) )
 	{
 		Q = 0.0;
 	}
@@ -637,7 +601,7 @@ float FQuadric::Evaluate( const FVector3f& Point ) const
 FQuadricAttr::FQuadricAttr(
 	const QVec3 p0, const QVec3 p1, const QVec3 p2,
 	const float* attr0, const float* attr1, const float* attr2,
-	const float* AttributeWeights, uint32 NumAttributes )
+	const float* AttributeWeights, uint32_t NumAttributes )
 {
 	const QVec3 p01 = p1 - p0;
 	const QVec3 p02 = p2 - p0;
@@ -654,7 +618,7 @@ FQuadricAttr::FQuadricAttr(
 
 	const QScalar Length = sqrt( n | n );
 	const QScalar area = 0.5 * Length;
-	//if (Length < QScalar(SMALL_NUMBER))
+	//if (Length < QScalar(XSM_SMALL_NUMBER))
 	if( area < 1e-12 )
 	{
 		Zero( NumAttributes );
@@ -691,13 +655,13 @@ FQuadricAttr::FQuadricAttr(
 		p02.x, p02.y, p02.z,
 		n.x,   n.y,   n.z
 	};
-	uint32 Pivot[3];
+	uint32_t Pivot[3];
 	bool bInvertable = LUPFactorize( A, Pivot, 3, (QScalar)1e-12 );
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 	
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		if( AttributeWeights[i] == 0.0f )
 		{
@@ -712,9 +676,9 @@ FQuadricAttr::FQuadricAttr(
 		float a1 = AttributeWeights[i] * attr1[i];
 		float a2 = AttributeWeights[i] * attr2[i];
 		
-		a0 = FMath::IsFinite( a0 ) ? a0 : 0.0f;
-		a1 = FMath::IsFinite( a1 ) ? a1 : 0.0f;
-		a2 = FMath::IsFinite( a2 ) ? a2 : 0.0f;
+		a0 = std::isfinite( a0 ) ? a0 : 0.0f;
+		a1 = std::isfinite( a1 ) ? a1 : 0.0f;
+		a2 = std::isfinite( a2 ) ? a2 : 0.0f;
 
 		QVec3 Grad;
 		if( !bInvertable )
@@ -779,7 +743,7 @@ FQuadricAttr::FQuadricAttr(
 
 	d2 *= area;
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		g[i].x *= area;
 		g[i].y *= area;
@@ -794,12 +758,12 @@ FQuadricAttr::FQuadricAttr(
 }
 
 void FQuadricAttr::Rebase(
-	const FVector3f& RESTRICT Point,
-	const float* RESTRICT Attribute,
-	const float* RESTRICT AttributeWeights,
-	uint32 NumAttributes )
+	const FVector3f& __restrict Point,
+	const float* __restrict Attribute,
+	const float* __restrict AttributeWeights,
+	uint32_t NumAttributes )
 {
-	//if( a < (QScalar)SMALL_NUMBER )
+	//if( a < (QScalar)XSM_SMALL_NUMBER )
 	if( a < 1e-12 )
 		return;
 
@@ -814,17 +778,15 @@ void FQuadricAttr::Rebase(
 	d2 = DistHalf * Dist2A;
 	dv = Dist2A;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		if( AttributeWeights[i] == 0.0f )
 			continue;
 		
 		float a0 = AttributeWeights[i] * Attribute[i];
-
-		checkSlow( FMath::IsFinite( a0 ) );
 
 		// p0 | g + d = a0
 		const QScalar qd = a0 - ( g[i] | p0 ) * InvA;
@@ -836,13 +798,13 @@ void FQuadricAttr::Rebase(
 }
 
 void FQuadricAttr::Add(
-	const FQuadricAttr& RESTRICT q,
-	const FVector3f& RESTRICT Point,
-	const float* RESTRICT Attribute,
-	const float* RESTRICT AttributeWeights,
-	uint32 NumAttributes )
+	const FQuadricAttr& __restrict q,
+	const FVector3f& __restrict Point,
+	const float* __restrict Attribute,
+	const float* __restrict AttributeWeights,
+	uint32_t NumAttributes )
 {
-	//if( q.a < (QScalar)SMALL_NUMBER )
+	//if( q.a < (QScalar)XSM_SMALL_NUMBER )
 	if( q.a < 1e-12 )
 		return;
 
@@ -867,19 +829,17 @@ void FQuadricAttr::Add(
 	nv += q.nv;
 	dv += Dist2A;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	QVec3* RESTRICT   qg = (QVec3*)( &q + 1 );
+	QVec3* __restrict   qg = (QVec3*)( &q + 1 );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		if( AttributeWeights[i] == 0.0f )
 			continue;
 		
 		float a0 = AttributeWeights[i] * Attribute[i];
-
-		checkSlow( FMath::IsFinite( a0 ) );
 
 		// p0 | g + d = a0
 		const QScalar qd = a0 - ( qg[i] | p0 ) * InvA;
@@ -896,8 +856,8 @@ void FQuadricAttr::Add(
 }
 
 void FQuadricAttr::Add(
-	const FQuadricAttr& RESTRICT q,
-	uint32 NumAttributes )
+	const FQuadricAttr& __restrict q,
+	uint32_t NumAttributes )
 {
 	nxx += q.nxx;
 	nyy += q.nyy;
@@ -913,13 +873,13 @@ void FQuadricAttr::Add(
 	nv += q.nv;
 	dv += q.dv;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	QVec3* RESTRICT   qg = (QVec3*)( &q + 1 );
-	QScalar* RESTRICT qd = (QScalar*)( qg + NumAttributes );
+	QVec3* __restrict   qg = (QVec3*)( &q + 1 );
+	QScalar* __restrict qd = (QScalar*)( qg + NumAttributes );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		g[i] += qg[i];
 		d[i] += qd[i];
@@ -928,7 +888,7 @@ void FQuadricAttr::Add(
 	a += q.a;
 }
 
-void FQuadricAttr::Zero( uint32 NumAttributes )
+void FQuadricAttr::Zero( uint32_t NumAttributes )
 {
 	nxx = 0.0;
 	nyy = 0.0;
@@ -941,10 +901,10 @@ void FQuadricAttr::Zero( uint32 NumAttributes )
 	dn = 0.0;
 	d2 = 0.0;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		g[i] = 0.0;
 		d[i] = 0.0;
@@ -958,81 +918,81 @@ void FQuadricAttr::Zero( uint32 NumAttributes )
 #endif
 }
 
-float FQuadricAttr::Evaluate( const FVector3f& Point, const float* RESTRICT Attributes, const float* RESTRICT AttributeWeights, uint32 NumAttributes ) const
-{
-	// Q(v) = vt*A*v + 2*bt*v + c
-	
-	// v = [ p ]
-	//     [ s ]
-	
-	// A = [ C  B  ]
-	//     [ Bt aI ]
-	
-	// C = n*nt
-	// B = -g[ 0 .. m ]
+//float FQuadricAttr::Evaluate( const FVector3f& Point, const float* __restrict Attributes, const float* __restrict AttributeWeights, uint32_t NumAttributes ) const
+//{
+//	// Q(v) = vt*A*v + 2*bt*v + c
+//	
+//	// v = [ p ]
+//	//     [ s ]
+//	
+//	// A = [ C  B  ]
+//	//     [ Bt aI ]
+//	
+//	// C = n*nt
+//	// B = -g[ 0 .. m ]
+//
+//	// b = [  dn         ]
+//	//     [ -d[ 0 .. m] ]
+//
+//	// c = d2
+//
+//	QVec3 p = Point;
+//
+//	QVec3* __restrict   g = (QVec3*)( this + 1 );
+//	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
+//	QScalar* __restrict s = (QScalar*)XSM_FMemory_Alloca( NumAttributes * sizeof( QScalar ) );
+//
+//	for( uint32_t i = 0; i < NumAttributes; i++ )
+//	{
+//		s[i] = AttributeWeights[i] * Attributes[i];
+//	}
+//
+//	// A*v = [ C*p  + B*s ]
+//	//       [ Bt*p + a*s ]
+//
+//	// C*p
+//	QScalar x = p | QVec3( nxx, nxy, nxz );
+//	QScalar y = p | QVec3( nxy, nyy, nyz );
+//	QScalar z = p | QVec3( nxz, nyz, nzz );
+//
+//	// B*s
+//	for( uint32_t i = 0; i < NumAttributes; i++ )
+//	{
+//		x -= g[i].x * s[i];
+//		y -= g[i].y * s[i];
+//		z -= g[i].z * s[i];
+//	}
+//
+//	// vt*A*v = pt * ( C*p + B*s ) + st * ( Bt*p + a*s )
+//
+//	// pt * (C*p + B*s)
+//	QScalar vAv = p | QVec3( x, y, z );
+//
+//	// st * ( Bt*p + a*s )
+//	for( uint32_t i = 0; i < NumAttributes; i++ )
+//	{
+//		vAv += s[i] * ( a * s[i] - ( g[i] | QVec3( x, y, z ) ) );
+//	}
+//
+//	// bt*v
+//	QScalar btv = p | dn;
+//	for( uint32_t i = 0; i < NumAttributes; i++ )
+//	{
+//		btv -= d[i] * s[i];
+//	}
+//
+//	// Q(v) = vt*A*v + 2*bt*v + c
+//	QScalar Q = vAv + 2.0 * btv + d2;
+//
+//	if( Q < 0.0 || !std::isfinite( Q ) )
+//	{
+//		Q = 0.0;
+//	}
+//
+//	return Q;
+//}
 
-	// b = [  dn         ]
-	//     [ -d[ 0 .. m] ]
-
-	// c = d2
-
-	QVec3 p = Point;
-
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
-	QScalar* RESTRICT s = (QScalar*)FMemory_Alloca( NumAttributes * sizeof( QScalar ) );
-
-	for( uint32 i = 0; i < NumAttributes; i++ )
-	{
-		s[i] = AttributeWeights[i] * Attributes[i];
-	}
-
-	// A*v = [ C*p  + B*s ]
-	//       [ Bt*p + a*s ]
-
-	// C*p
-	QScalar x = p | QVec3( nxx, nxy, nxz );
-	QScalar y = p | QVec3( nxy, nyy, nyz );
-	QScalar z = p | QVec3( nxz, nyz, nzz );
-
-	// B*s
-	for( uint32 i = 0; i < NumAttributes; i++ )
-	{
-		x -= g[i].x * s[i];
-		y -= g[i].y * s[i];
-		z -= g[i].z * s[i];
-	}
-
-	// vt*A*v = pt * ( C*p + B*s ) + st * ( Bt*p + a*s )
-
-	// pt * (C*p + B*s)
-	QScalar vAv = p | QVec3( x, y, z );
-
-	// st * ( Bt*p + a*s )
-	for( uint32 i = 0; i < NumAttributes; i++ )
-	{
-		vAv += s[i] * ( a * s[i] - ( g[i] | QVec3( x, y, z ) ) );
-	}
-
-	// bt*v
-	QScalar btv = p | dn;
-	for( uint32 i = 0; i < NumAttributes; i++ )
-	{
-		btv -= d[i] * s[i];
-	}
-
-	// Q(v) = vt*A*v + 2*bt*v + c
-	QScalar Q = vAv + 2.0 * btv + d2;
-
-	if( Q < 0.0 || !FMath::IsFinite( Q ) )
-	{
-		Q = 0.0;
-	}
-
-	return Q;
-}
-
-float FQuadricAttr::CalcAttributesAndEvaluate( const FVector3f& RESTRICT Point, float* RESTRICT Attributes, const float* RESTRICT AttributeWeights, uint32 NumAttributes ) const
+float FQuadricAttr::CalcAttributesAndEvaluate( const FVector3f& __restrict Point, float* __restrict Attributes, const float* __restrict AttributeWeights, uint32_t NumAttributes ) const
 {
 	// Q(v) = vt*A*v + 2*bt*v + c
 	
@@ -1062,10 +1022,10 @@ float FQuadricAttr::CalcAttributesAndEvaluate( const FVector3f& RESTRICT Point, 
 	QScalar z = ( p | QVec3( nxz, nyz, nzz ) ) + 2.0 * dn.z;
 	QScalar w = 0.0;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		if( AttributeWeights[i] != 0.0f )
 		{
@@ -1101,10 +1061,10 @@ float FQuadricAttr::CalcAttributesAndEvaluate( const FVector3f& RESTRICT Point, 
 	// Q(v) = vt*A*v + 2*bt*v + c
 	QScalar Q = ( p | QVec3( x, y, z ) ) + 2.0 * ( p | dn ) + d2;
 
-	QVec3* RESTRICT   g = (QVec3*)( this + 1 );
-	QScalar* RESTRICT d = (QScalar*)( g + NumAttributes );
+	QVec3* __restrict   g = (QVec3*)( this + 1 );
+	QScalar* __restrict d = (QScalar*)( g + NumAttributes );
 
-	for( uint32 i = 0; i < NumAttributes; i++ )
+	for( uint32_t i = 0; i < NumAttributes; i++ )
 	{
 		if( AttributeWeights[i] != 0.0f )
 		{
@@ -1126,7 +1086,7 @@ float FQuadricAttr::CalcAttributesAndEvaluate( const FVector3f& RESTRICT Point, 
 	}
 #endif
 
-	if( Q < 0.0 || !FMath::IsFinite( Q ) )
+	if( Q < 0.0 || !std::isfinite( Q ) )
 	{
 		Q = 0.0;
 	}
@@ -1190,33 +1150,9 @@ bool FQuadricAttrOptimizer::Optimize( FVector3f& Position ) const
 	};
 	QScalar b[] = { aBddn.x, aBddn.y, aBddn.z };
 
-#if PSEUDO_INVERSE
-	QScalar A[9];
-	QScalar V[9];
-	QScalar S[3];
-	FMemory::Memcpy( A, M );
-
-	JacobiSVD::EigenSolver3( A, S, V, (QScalar)SMALL_NUMBER );
-	PseudoInverse( S, 3, 1e-6 );
-
-	// Rebase
-	for( int i = 0; i < 3; i++ )
-		for( int j = 0; j < 3; j++ )
-			b[i] -= M[ 3*i + j ] * Position[j];
-
-	QScalar x[3];
-	PseudoSolve( V, S, 3, b, x );
-	//if( PseudoSolveIterate( M, V, S, 3, b, x ) )
-	{
-		Position.X += x[0];
-		Position.Y += x[1];
-		Position.Z += x[2];
-		return true;
-	}
-#else
-	uint32 Pivot[3];
+	uint32_t Pivot[3];
 	QScalar LU[9];
-	FMemory::Memcpy( LU, M );
+	std::memcpy( LU, M, sizeof(M));
 	if( LUPFactorize( LU, Pivot, 3, (QScalar)1e-12 ) )
 	{
 		QScalar p[3];
@@ -1228,7 +1164,6 @@ bool FQuadricAttrOptimizer::Optimize( FVector3f& Position ) const
 			return true;
 		}
 	}
-#endif
 
 	return false;
 }
@@ -1281,66 +1216,9 @@ bool FQuadricAttrOptimizer::OptimizeVolume( FVector3f& Position ) const
 		};
 		QScalar b[] = { aBddn.x, aBddn.y, aBddn.z, -dv };
 
-#if PSEUDO_INVERSE
-		QScalar A[16];
-		QScalar V[16];
-		QScalar S[4];
-		FMemory::Memcpy( A, M );
-
-		JacobiSVD::EigenSolver4( A, S, V, (QScalar)SMALL_NUMBER );
-		PseudoInverse( S, 4, 1e-6 );
-
-		// Rebase
-		for( int i = 0; i < 4; i++ )
-			for( int j = 0; j < 3; j++ )
-				b[i] -= M[ 4*i + j ] * Position[j];
-
-		// Guess for the Lagrange multiplier
-#if 1
-		if( (nv | nv) > 1e-4 )
-		{
-			/*
-			Guessing 0 for position (already rebased)
-			M*0 + lm*nv = b
-			nv * lm = b
-
-			Solved with least squares (same as projection)
-			A*x = b
-			x = (A^T * A)^-1 * A^T * b
-		
-			lm = (nv^T * nv)^-1 * nv^T*b
-			lm = (nv | b ) / (nv | nv);
-			*/
-			QScalar lm = ( nv.x * b[0] + nv.y * b[1] + nv.z * b[2] ) / ( nv | nv );
-			// Rebase Lagrange multiplier
-			for( int i = 0; i < 4; i++ )
-				b[i] -= M[ 4*i + 3 ] * lm;
-		}
-#endif
-		
-		// Newton iterate Lagrange guess
-		QScalar x[4];
-		for( uint32 k = 0; k < 4; k++ )
-		{
-			PseudoSolve( V, S, 4, b, x );
-
-			// Rebase Lagrange multiplier
-			for( int i = 0; i < 4; i++ )
-				b[i] -= M[ 4*i + 3 ] * x[3];
-		}
-
-		PseudoSolve( V, S, 4, b, x );
-		//if( PseudoSolveIterate( M, V, S, 4, b, x ) )
-		{
-			Position.X += x[0];
-			Position.Y += x[1];
-			Position.Z += x[2];
-			return true;
-		}
-#else
-		uint32 Pivot[4];
+		uint32_t Pivot[4];
 		QScalar LU[16];
-		FMemory::Memcpy( LU, M );
+		std::memcpy( LU, M, sizeof(M));
 		if( LUPFactorize( LU, Pivot, 4, (QScalar)1e-12 ) )
 		{
 			QScalar p[4];
@@ -1352,7 +1230,6 @@ bool FQuadricAttrOptimizer::OptimizeVolume( FVector3f& Position ) const
 				return true;
 			}
 		}
-#endif
 	}
 #endif
 
@@ -1492,7 +1369,7 @@ bool FQuadricAttrOptimizer::OptimizeLinear( const FVector3f& Position0, const FV
 
 		QScalar det = ATAxx * ATAyy - ATAxy * ATAxy;
 
-		if( FMath::Abs( det ) > 1e-16 )
+		if( std::abs( det ) > 1e-16 )
 		{
 			// (A^T * A)^-1
 			QScalar iATAxx =  ATAyy;
@@ -1513,7 +1390,8 @@ bool FQuadricAttrOptimizer::OptimizeLinear( const FVector3f& Position0, const FV
 	}
 #endif
 
-	t = FMath::Clamp< QScalar >( t, 0.0, 1.0 );
+	
+	t = Clamp< QScalar >( t, 0.0, 1.0 );
 
 	QVec3 p = p0 * (1.0 - t) + p1 * t;
 
@@ -1522,6 +1400,8 @@ bool FQuadricAttrOptimizer::OptimizeLinear( const FVector3f& Position0, const FV
 	Position.Z = p.z;
 
 	return true;
+}
+
 }
 
 #if defined(_MSC_VER) && !defined(__clang__)

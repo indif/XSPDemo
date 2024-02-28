@@ -1,6 +1,6 @@
 #include "DisjointSet.h"
 
-namespace XSP
+namespace XspMeshSimp
 {
 
 	FDisjointSet::FDisjointSet(const uint32_t Size)
