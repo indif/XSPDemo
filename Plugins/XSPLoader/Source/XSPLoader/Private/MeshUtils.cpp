@@ -10,6 +10,8 @@
 
 #include "XSPStat.h"
 
+#include "MeshSimplify1/MeshSimplify1.h"
+
 bool bXSPEnableMeshClean = true;
 FAutoConsoleVariableRef CVarXSPEnableMeshClean(
     TEXT("xsp.EnableMeshClean"), 
@@ -150,6 +152,7 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
 
     if (bXSPSimplyRawMesh && NumMeshVertices >= XSPSimplyRawMeshMinVertices)
     {
+#if 0
         TArray<FVector3f> Positions;
         Positions.SetNumUninitialized(NumMeshVertices);
         for (int32 i = 0; i < NumMeshVertices; i++)
@@ -177,6 +180,41 @@ void AppendRawMesh(float* MeshVertexBuffer, float* MeshNormalBuffer, int32 Buffe
             INC_DWORD_STAT_BY(STAT_XSPLoader_NumTotalVerticesSimplied, Positions.Num()-SimplifiedPositions.Num());
             return;
         }
+#else
+        std::vector<float> Positions;
+        Positions.resize(BufferLength);
+        for (int32 i = 0; i < NumMeshVertices; i++)
+        {
+            Positions[i * 3 + 0] = MeshVertexBuffer[i * 3 + 1] * 100;
+            Positions[i * 3 + 1] = MeshVertexBuffer[i * 3 + 0] * 100;
+            Positions[i * 3 + 2] = MeshVertexBuffer[i * 3 + 2] * 100;
+        }
+        std::vector<float> SimplifiedPositions;
+        std::vector<float> SimplifiedNormals;
+        std::vector<uint32_t> SimplifiedIndices;
+        if (XSP::SimplyMesh(Positions, XSPSimplyRawMeshPercentTriangles, XSPSimplyRawMeshPercentVertices, SimplifiedPositions, SimplifiedNormals, SimplifiedIndices))
+        {
+            int32 NumVertices = SimplifiedPositions.size()/3;
+            PositionList.AddUninitialized(NumVertices);
+            NormalList.AddUninitialized(NumVertices);
+            for (int32 i = 0; i < NumVertices; i++)
+            {
+                PositionList[PositionOffset + i].Set(SimplifiedPositions[i * 3 + 0], SimplifiedPositions[i * 3 + 1], SimplifiedPositions[i * 3 + 2]);
+                NormalList[PositionOffset + i].Set(FVector(SimplifiedNormals[i * 3 + 0], SimplifiedNormals[i * 3 + 1], SimplifiedNormals[i * 3 + 2]));
+                InOutBoundingBox += PositionList[PositionOffset + i];
+            }
+            int32 NumIndices = SimplifiedIndices.size();
+            IndexList.AddUninitialized(NumIndices);
+            for (int32 i = 0; i < NumIndices; i++)
+            {
+                IndexList[IndexOffset + i] = SimplifiedIndices[i] + PositionOffset;
+            }
+
+            INC_DWORD_STAT(STAT_XSPLoader_NumRawMeshSimplified);
+            INC_DWORD_STAT_BY(STAT_XSPLoader_NumTotalVerticesSimplied, NumMeshVertices - NumVertices);
+            return;
+        }
+#endif
     }
 
     {
