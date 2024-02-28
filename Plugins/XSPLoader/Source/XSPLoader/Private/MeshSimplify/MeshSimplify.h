@@ -8,11 +8,11 @@
 namespace XspMeshSimp
 {
 
-	class FMeshSimplifier1
+	class FMeshSimplifier
 	{
 	public:
-		FMeshSimplifier1(float* Verts, uint32_t NumVerts, uint32_t* Indexes, uint32_t NumIndexes, int32_t* MaterialIndexes, uint32_t NumAttributes);
-		~FMeshSimplifier1() = default;
+		FMeshSimplifier(float* Verts, uint32_t NumVerts, uint32_t* Indexes, uint32_t NumIndexes, int32_t* MaterialIndexes, uint32_t NumAttributes);
+		~FMeshSimplifier() = default;
 
 		void		SetAttributeWeights(const float* Weights) { AttributeWeights = Weights; }
 		void		SetEdgeWeight(float Weight) { EdgeWeight = Weight; }
@@ -135,29 +135,29 @@ namespace XspMeshSimp
 	};
 
 
-	inline FVector3f& FMeshSimplifier1::GetPosition(uint32_t VertIndex)
+	inline FVector3f& FMeshSimplifier::GetPosition(uint32_t VertIndex)
 	{
 		return *reinterpret_cast<FVector3f*>(&Verts[(3 + NumAttributes) * VertIndex]);
 	}
 
-	inline const FVector3f& FMeshSimplifier1::GetPosition(uint32_t VertIndex) const
+	inline const FVector3f& FMeshSimplifier::GetPosition(uint32_t VertIndex) const
 	{
 		return *reinterpret_cast<const FVector3f*>(&Verts[(3 + NumAttributes) * VertIndex]);
 	}
 
-	inline float* FMeshSimplifier1::GetAttributes(uint32_t VertIndex)
+	inline float* FMeshSimplifier::GetAttributes(uint32_t VertIndex)
 	{
 		return &Verts[(3 + NumAttributes) * VertIndex + 3];
 	}
 
-	inline FQuadricAttr& FMeshSimplifier1::GetTriQuadric(uint32_t TriIndex)
+	inline FQuadricAttr& FMeshSimplifier::GetTriQuadric(uint32_t TriIndex)
 	{
 		const unsigned __int64 QuadricSize = sizeof(FQuadricAttr) + NumAttributes * 4 * sizeof(QScalar);
 		return *reinterpret_cast<FQuadricAttr*>(&TriQuadrics[TriIndex * QuadricSize]);
 	}
 
 	template< typename FuncType >
-	void FMeshSimplifier1::ForAllVerts(const FVector3f& Position, FuncType&& Function) const
+	void FMeshSimplifier::ForAllVerts(const FVector3f& Position, FuncType&& Function) const
 	{
 		uint32_t Hash = HashPosition(Position);
 		for (uint32_t VertIndex = VertHash.First(Hash); VertHash.IsValid(VertIndex); VertIndex = VertHash.Next(VertIndex))
@@ -170,7 +170,7 @@ namespace XspMeshSimp
 	}
 
 	template< typename FuncType >
-	void FMeshSimplifier1::ForAllCorners(const FVector3f& Position, FuncType&& Function) const
+	void FMeshSimplifier::ForAllCorners(const FVector3f& Position, FuncType&& Function) const
 	{
 		uint32_t Hash = HashPosition(Position);
 		for (uint32_t Corner = CornerHash.First(Hash); CornerHash.IsValid(Corner); Corner = CornerHash.Next(Corner))
@@ -183,7 +183,7 @@ namespace XspMeshSimp
 	}
 
 	template< typename FuncType >
-	void FMeshSimplifier1::ForAllPairs(const FVector3f& Position, FuncType&& Function) const
+	void FMeshSimplifier::ForAllPairs(const FVector3f& Position, FuncType&& Function) const
 	{
 		uint32_t Hash = HashPosition(Position);
 		for (uint32_t PairIndex = PairHash0.First(Hash); PairHash0.IsValid(PairIndex); PairIndex = PairHash0.Next(PairIndex))
