@@ -162,6 +162,36 @@ bool AXSPModelActor::CheckRelation(int32 Dbid, int32 ChildDbid)
     return false;
 }
 
+namespace
+{
+    bool RecursiveCheckModelNode(TArray<FXSPNodeData*>& NodeDataArray, int32 Dbid)
+    {
+        if (NodeDataArray[Dbid]->MeshPositionArray.Num() > 0)
+            return true;
+
+        for (int32 i = 1; i < NodeDataArray[Dbid]->NumChildren; ++i)
+        {
+            if (RecursiveCheckModelNode(NodeDataArray, Dbid + i))
+                return true;
+        }
+        return false;
+    }
+}
+
+bool AXSPModelActor::CheckModelNode(int32 Dbid)
+{
+    if (EState::Empty == State || EState::ReadingFile == State)
+    {
+        checkNoEntry();
+        return false;
+    }
+
+    if (Dbid < 0 || Dbid >= NodeDataArray.Num())
+        return false;
+
+    return RecursiveCheckModelNode(NodeDataArray, Dbid);
+}
+
 void AXSPModelActor::SetRenderCustomDepthStencil(int32 Dbid, int32 CustomDepthStencilValue)
 {
     if (!UpdateOperation())
