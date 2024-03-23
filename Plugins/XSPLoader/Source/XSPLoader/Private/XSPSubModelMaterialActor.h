@@ -22,6 +22,8 @@ public:
 
     bool TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild);
 
+    void SetCrossSection(bool bEnable, const FVector& Position, const FVector& Normal);
+
 private:
     bool PreProcess();
     void ProcessBatch(bool bAsyncBuild);

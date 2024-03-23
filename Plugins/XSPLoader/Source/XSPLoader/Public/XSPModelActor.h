@@ -72,6 +72,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ClearRenderColorArray(const TArray<int32>& DbidArray);
 
+	//设置剖切效果参数
+	UFUNCTION(BlueprintCallable)
+	void SetCrossSection(bool bEnable, const FVector& Position = FVector(0, 0, 0), const FVector& Normal = FVector(0, 0, 1));
+
 public:
 	//加载完成事件(参数: 0-初始化加载,1-动态更新)
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoadFinishDelegate, int32);
@@ -133,4 +137,9 @@ private:
 	FOnLoadFinishDelegate OnLoadFinishDelegate;
 
 	int64 OperationBeginTicks;
+
+	//剖切面参数
+	bool bCrossSectionEnable = false;
+	FVector CrossSectionPosition = FVector(0, 0, 0);
+	FVector CrossSectionNormal = FVector(0, 0, 1);
 };

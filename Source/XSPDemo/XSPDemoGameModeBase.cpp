@@ -4,6 +4,8 @@
 #include "XSPDemoGameModeBase.h"
 #include "XSPModelActor.h"
 #include "XSPLoaderModule.h"
+#include "XSPCrossSectionActor.h"
+
 #include <fstream>
 
 #include "Kismet/GameplayStatics.h"
@@ -79,10 +81,36 @@ void AXSPDemoGameModeBase::Load()
 
 void AXSPDemoGameModeBase::Unload()
 {
+    if (CrossSectionActor)
+    {
+        CrossSectionActor->SetModelActor(nullptr);
+    }
+
     if (CombinedMeshActor)
     {
         GetWorld()->DestroyActor(CombinedMeshActor);
         CombinedMeshActor = nullptr;
         GEngine->ForceGarbageCollection(true);
+    }
+}
+
+void AXSPDemoGameModeBase::EnableCorssSection()
+{
+    if (!CrossSectionActor)
+    {
+        CrossSectionActor = Cast<AXSPCrossSectionActor>(GetWorld()->SpawnActor(AXSPCrossSectionActor::GetBPClass()));
+    }
+
+    if (CombinedMeshActor)
+    {
+        CrossSectionActor->SetModelActor(Cast<AXSPModelActor>(CombinedMeshActor));
+    }    
+}
+
+void AXSPDemoGameModeBase::DisableCorssSection()
+{
+    if (CrossSectionActor)
+    {
+        CrossSectionActor->SetModelActor(nullptr);
     }
 }

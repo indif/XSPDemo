@@ -30,6 +30,8 @@ public:
 
 	bool TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild);
 
+	void SetCrossSection(bool bEnable, const FVector& Position, const FVector& Normal);
+
 private:
 	FXSPSubModelMaterialActor* GetOrCreateMaterialActor(const FLinearColor& Material);
 	FXSPSubModelMaterialActor* GetOrCreateStencilActor(int32 CustomDepthStencilValue);

@@ -64,6 +64,13 @@ bool FXSPSubModelMaterialActor::TickDynamicCombine(float& InOutSeconds, bool bAs
     return bFinished;
 }
 
+void FXSPSubModelMaterialActor::SetCrossSection(bool bEnable, const FVector& Position, const FVector& Normal)
+{
+    MaterialInstanceDynamic->SetScalarParameterValue(TEXT("CrossSectionEnable"), bEnable ? 1.f : 0.f);
+    MaterialInstanceDynamic->SetVectorParameterValue(TEXT("CrossSectionNormal"), FLinearColor(Normal));
+    MaterialInstanceDynamic->SetVectorParameterValue(TEXT("CrossSectionCenterPoint"), FLinearColor(Position));
+}
+
 bool FXSPSubModelMaterialActor::PreProcess()
 {
     TArray<UPrimitiveComponent*> ComponentsToRelease;

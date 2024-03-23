@@ -26,7 +26,16 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Unload();
 
+	UFUNCTION(BlueprintCallable)
+	void EnableCorssSection();
+	
+	UFUNCTION(BlueprintCallable)
+	void DisableCorssSection();
+
 private:
 	//UPROPERTY()
 	AActor* CombinedMeshActor = nullptr;
+
+	UPROPERTY()
+	class AXSPCrossSectionActor* CrossSectionActor = nullptr;
 };

@@ -173,6 +173,16 @@ bool FXSPSubModelActor::TickDynamicCombine(float& InOutSeconds, bool bAsyncBuild
     return bFinished;
 }
 
+void FXSPSubModelActor::SetCrossSection(bool bEnable, const FVector& Position, const FVector& Normal)
+{
+    for (auto Pair : MaterialActorMap)
+        Pair.Value->SetCrossSection(bEnable, Position, Normal);
+    for (auto Pair : CustomStencilActorMap)
+        Pair.Value->SetCrossSection(bEnable, Position, Normal);
+    for (auto Pair : HighlightActorMap)
+        Pair.Value->SetCrossSection(bEnable, Position, Normal);
+}
+
 FXSPSubModelMaterialActor* FXSPSubModelActor::GetOrCreateMaterialActor(const FLinearColor& Material)
 {
     TSharedPtr<FXSPSubModelMaterialActor>* Found = MaterialActorMap.Find(Material);

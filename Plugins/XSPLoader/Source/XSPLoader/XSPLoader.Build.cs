@@ -44,7 +44,8 @@ public class XSPLoader : ModuleRules
                 "Projects",
 				"RenderCore",
 				"RHI",
-                "MeshUtilitiesCommon"
+                "MeshUtilitiesCommon",
+				"InputCore",
             }
 			);
 		

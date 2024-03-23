@@ -369,6 +369,18 @@ AXSPModelActor::FOnLoadFinishDelegate& AXSPModelActor::GetOnLoadFinishDelegate()
     return OnLoadFinishDelegate;
 }
 
+void AXSPModelActor::SetCrossSection(bool bEnable, const FVector& Position, const FVector& Normal)
+{
+    bCrossSectionEnable = bEnable;
+    CrossSectionPosition = Position;
+    CrossSectionNormal = Normal;
+
+    for (auto Pair : SubModelActorMap)
+    {
+        Pair.Value->SetCrossSection(bCrossSectionEnable, CrossSectionPosition, CrossSectionNormal);
+    }
+}
+
 // Called when the game starts or when spawned
 void AXSPModelActor::BeginPlay()
 {
@@ -392,6 +404,11 @@ UMaterialInstanceDynamic* AXSPModelActor::CreateMaterialInstanceDynamic(const FL
     MaterialInstanceDynamic->SetVectorParameterValue(TEXT("BaseColor"), BaseColor);
     MaterialInstanceDynamic->SetScalarParameterValue(TEXT("Roughness"), Roughness);
     MaterialInstanceDynamic->SetVectorParameterValue(TEXT("EmissiveColor"), EmissiveColor);
+
+    MaterialInstanceDynamic->SetScalarParameterValue(TEXT("CrossSectionEnable"), bCrossSectionEnable ? 1.f : 0.f);
+    MaterialInstanceDynamic->SetVectorParameterValue(TEXT("CrossSectionPlanePoint"), CrossSectionPosition);
+    MaterialInstanceDynamic->SetVectorParameterValue(TEXT("CrossSectionNormal"), CrossSectionNormal);
+
     MaterialInstanceArray.Add(MaterialInstanceDynamic);
     return MaterialInstanceDynamic;
 }
