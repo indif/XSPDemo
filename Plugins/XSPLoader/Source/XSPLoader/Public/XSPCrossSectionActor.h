@@ -38,6 +38,14 @@ public:
 
 	void SetModelActor(AXSPModelActor* InModelActor);
 
+	enum class EDir : uint8
+	{
+		DirX,
+		DirY,
+		DirZ
+	};
+	void SetDirection(EDir Dir);
+
 	UFUNCTION()
 	void OnPress(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
 

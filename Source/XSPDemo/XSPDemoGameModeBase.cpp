@@ -103,6 +103,7 @@ void AXSPDemoGameModeBase::EnableCorssSection()
 
     if (CombinedMeshActor)
     {
+        CrossSectionActor->SetDirection(AXSPCrossSectionActor::EDir::DirZ);
         CrossSectionActor->SetModelActor(Cast<AXSPModelActor>(CombinedMeshActor));
     }    
 }

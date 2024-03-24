@@ -56,9 +56,25 @@ void AXSPCrossSectionActor::SetModelActor(AXSPModelActor* InModelActor)
         }
         else
         {
-            ApplyCrossSectionParams();
             SetActorLocationAndRotation(Position, Rotator);
+            ApplyCrossSectionParams();
         }
+    }
+}
+
+void AXSPCrossSectionActor::SetDirection(AXSPCrossSectionActor::EDir Dir)
+{
+    if (Dir == EDir::DirX)
+    {
+        Rotator = FRotator(90, 0, 0);
+    }
+    else if (Dir == EDir::DirY)
+    {
+        Rotator = FRotator(0, 0, 90);
+    }
+    else if (Dir == EDir::DirZ)
+    {
+        Rotator = FRotator(0, 0, 0);
     }
 }
 
@@ -73,8 +89,8 @@ void AXSPCrossSectionActor::OnPress(UPrimitiveComponent* TouchedComponent, FKey 
 
         FVector MouseWorldLocation, MouseWorldDirection;
         PlayerController->DeprojectMousePositionToWorld(MouseWorldLocation, MouseWorldDirection);
-        ProjPlane = FMath::Abs(FVector::DotProduct(MouseWorldDirection, FVector::XAxisVector)) > FMath::Abs(FVector::DotProduct(MouseWorldDirection, FVector::YAxisVector)) ? EProjPlane::PlaneX : EProjPlane::PlaneY;
-        StartMovingAxis = FVector::ZAxisVector;
+        ProjPlane = FMath::Abs(FVector::DotProduct(MouseWorldDirection, GetActorForwardVector())) > FMath::Abs(FVector::DotProduct(MouseWorldDirection, GetActorRightVector())) ? EProjPlane::PlaneX : EProjPlane::PlaneY;
+        StartMovingAxis = GetActorUpVector();
         StartLocation = GetActorLocation();
         StartPoint = FVector::DotProduct((GetMouseIntersectionPositionOnTranslatePlane() - StartLocation), StartMovingAxis) * StartMovingAxis + StartLocation;
 
@@ -157,7 +173,7 @@ void AXSPCrossSectionActor::Tick(float DeltaTime)
     float Scale = GetScreenSpaceConstantScaleFactor(0.00077);
     SetActorScale3D(FVector(Scale));
 
-    FVector2D PlaneScale = GetPlaneScale(1.1);
+    FVector2D PlaneScale = GetPlaneScale(1);
     Plane->SetWorldScale3D(FVector(PlaneScale, 1));
 
     if (State == EState::DragMove)
@@ -171,10 +187,9 @@ void AXSPCrossSectionActor::Tick(float DeltaTime)
             //获取目标投影平面上的鼠标交点位置在当前移动轴上的投影
             FVector TargetPositionOnAxis = FVector::DotProduct((IntersectPoint - StartLocation), StartMovingAxis) * StartMovingAxis + StartLocation;
             FVector Offset = TargetPositionOnAxis - StartPoint;
-            //修改Actor位置
-            SetActorLocation(StartLocation + Offset);
+            Position = StartLocation + Offset;
 
-            Position = GetActorLocation();
+            SetActorLocationAndRotation(Position, Rotator);
             ApplyCrossSectionParams();
         }
     }
@@ -186,8 +201,8 @@ void AXSPCrossSectionActor::OnModelLoadFinish(int32 Type)
     {
         if (InitCrossSectionParams())
         {
-            ApplyCrossSectionParams();
             SetActorLocationAndRotation(Position, Rotator);
+            ApplyCrossSectionParams();
         }
     }
 }
@@ -200,7 +215,6 @@ bool AXSPCrossSectionActor::InitCrossSectionParams()
         if (ModelActorBox.IsValid)
         {
             Position = FVector(ModelActorBox.GetCenter());
-            Rotator = FRotator(0, 0, 0);
             return true;
         }
     }
@@ -209,10 +223,7 @@ bool AXSPCrossSectionActor::InitCrossSectionParams()
 
 void AXSPCrossSectionActor::ApplyCrossSectionParams()
 {
-    FVector Normal = Rotator.RotateVector(FVector(0, 0, -1));
-    ModelActor->SetCrossSection(true, Position, Normal);
-
-    SetActorLocationAndRotation(Position, Rotator);
+    ModelActor->SetCrossSection(true, Position, -GetActorUpVector());
 }
 
 float AXSPCrossSectionActor::GetScreenSpaceConstantScaleFactor(float InFactor)
@@ -257,12 +268,12 @@ FVector AXSPCrossSectionActor::GetMouseIntersectionPositionOnTranslatePlane()
     FVector normal;
     if (ProjPlane == EProjPlane::PlaneX)
     {
-        normal = FVector::XAxisVector;
+        normal = GetActorForwardVector();
 
     }
     else if (ProjPlane == EProjPlane::PlaneY)
     {
-        normal = FVector::YAxisVector;
+        normal = GetActorRightVector();
     }
     float Factor = (FVector::DotProduct(normal, GetActorLocation()) - FVector::DotProduct(normal, MouseWorldLocation)) / FVector::DotProduct(normal, MouseWorldDirection);
     FVector result = MouseWorldLocation + MouseWorldDirection * Factor;
