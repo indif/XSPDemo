@@ -36,15 +36,11 @@ public:
 
 	AXSPCrossSectionActor();
 
-	void SetModelActor(AXSPModelActor* InModelActor);
+	UFUNCTION(BlueprintCallable)
+	void SetDir(FString Dir); //x,y,z
 
-	enum class EDir : uint8
-	{
-		DirX,
-		DirY,
-		DirZ
-	};
-	void SetDirection(EDir Dir);
+	UFUNCTION(BlueprintCallable)
+	void SetEnable(bool bEnable);
 
 	UFUNCTION()
 	void OnPress(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
@@ -67,19 +63,15 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	void OnModelLoadFinish(int32 Type);
-
-	bool InitCrossSectionParams();
-
 	void ApplyCrossSectionParams();
 
 	float GetScreenSpaceConstantScaleFactor(float InFactor);
 
-	FVector2D GetPlaneScale(float InFactor);
-
 	FVector GetMouseIntersectionPositionOnTranslatePlane();
 
 	void HandleLeftMouseButtonPressed();
+
+	FBox GetModelBounds();
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -94,9 +86,7 @@ public:
 private:
 	TArray<UStaticMeshComponent*> DefaultComponents;
 
-	TWeakObjectPtr<AXSPModelActor> ModelActor;
-	FDelegateHandle ModelLoadFinishDelegateHandle;
-	FBox3f ModelActorBox;
+	bool bEnable = false;
 
 	FVector Position = FVector(0, 0, 0);
 	FRotator Rotator = FRotator(0, 0, 0);

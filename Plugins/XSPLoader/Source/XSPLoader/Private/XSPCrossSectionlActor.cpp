@@ -32,54 +32,54 @@ AXSPCrossSectionActor::AXSPCrossSectionActor()
     DefaultComponents.Add(Plane);
 }
 
-void AXSPCrossSectionActor::SetModelActor(AXSPModelActor* InModelActor)
+void AXSPCrossSectionActor::SetDir(FString Dir)
 {
-    if (ModelActor.Get() == InModelActor)
-        return;
-
-    if (ModelActor.IsValid())
+    if (Dir == TEXT("x")) //X
     {
-        ModelActor->SetCrossSection(false);
-        if (ModelLoadFinishDelegateHandle.IsValid())
-        {
-            ModelActor->GetOnLoadFinishDelegate().Remove(ModelLoadFinishDelegateHandle);
-            ModelLoadFinishDelegateHandle.Reset();
-        }
+        Rotator = FRotator(90, 0, 0);
+    }
+    else if (Dir == TEXT("y")) //Y
+    {
+        Rotator = FRotator(0, 0, 90);
+    }
+    else if (Dir == TEXT("z"))//Z
+    {
+        Rotator = FRotator(0, 0, 0);
     }
 
-    ModelActor = InModelActor;
-    if (ModelActor.IsValid())
+    if (bEnable)
     {
-        if (!InitCrossSectionParams())
+        SetActorLocationAndRotation(Position, Rotator);
+        ApplyCrossSectionParams();
+    }
+}
+
+void AXSPCrossSectionActor::SetEnable(bool bInEnable)
+{
+    if (bInEnable != bEnable)
+    {
+        bEnable = bInEnable;
+        SetActorHiddenInGame(!bEnable);
+        if (bEnable)
         {
-            ModelLoadFinishDelegateHandle = ModelActor->GetOnLoadFinishDelegate().AddUObject(this, &AXSPCrossSectionActor::OnModelLoadFinish);
-        }
-        else
-        {
+            Position = FVector(0, 0, 0);
+            FBox Box = GetModelBounds();
+            if (Box.IsValid)
+            {
+                Position = Box.GetCenter();
+            }
+
             SetActorLocationAndRotation(Position, Rotator);
             ApplyCrossSectionParams();
         }
     }
 }
 
-void AXSPCrossSectionActor::SetDirection(AXSPCrossSectionActor::EDir Dir)
-{
-    if (Dir == EDir::DirX)
-    {
-        Rotator = FRotator(90, 0, 0);
-    }
-    else if (Dir == EDir::DirY)
-    {
-        Rotator = FRotator(0, 0, 90);
-    }
-    else if (Dir == EDir::DirZ)
-    {
-        Rotator = FRotator(0, 0, 0);
-    }
-}
-
 void AXSPCrossSectionActor::OnPress(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
+    if (!bEnable)
+        return;
+
     if (TouchedComponent == NormalTranslate)
     {
         State = EState::DragMove;
@@ -97,11 +97,14 @@ void AXSPCrossSectionActor::OnPress(UPrimitiveComponent* TouchedComponent, FKey 
         PlayerController->SetIgnoreMoveInput(true);
         PlayerController->SetIgnoreLookInput(true);
     }
-    //GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("AXSPCrossSectionActor::OnPress"));
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("AXSPCrossSectionActor::OnPress"));
 }
 
 void AXSPCrossSectionActor::OnRelease(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
+    if (!bEnable)
+        return;
+
     if (State == EState::DragMove)
     {
         APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -115,6 +118,9 @@ void AXSPCrossSectionActor::OnRelease(UPrimitiveComponent* TouchedComponent, FKe
 
 void AXSPCrossSectionActor::OnBeginHover(UPrimitiveComponent* TouchedComponent)
 {
+    if (!bEnable)
+        return;
+
     //GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("AXSPCrossSectionActor::OnBeginHover"));
 
     //UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(Plane->GetMaterial(0));
@@ -124,6 +130,9 @@ void AXSPCrossSectionActor::OnBeginHover(UPrimitiveComponent* TouchedComponent)
 
 void AXSPCrossSectionActor::OnEndHover(UPrimitiveComponent* TouchedComponent)
 {
+    if (!bEnable)
+        return;
+
     //GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("AXSPCrossSectionActor::OnEndHover"));
 
     //UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(Plane->GetMaterial(0));
@@ -168,13 +177,22 @@ void AXSPCrossSectionActor::BeginPlay()
 
 void AXSPCrossSectionActor::Tick(float DeltaTime)
 {
+    if (!bEnable)
+        return;
+
     APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 
-    float Scale = GetScreenSpaceConstantScaleFactor(0.00077);
+    double Scale = GetScreenSpaceConstantScaleFactor(0.00077);
     SetActorScale3D(FVector(Scale));
 
-    FVector2D PlaneScale = GetPlaneScale(1);
-    Plane->SetWorldScale3D(FVector(PlaneScale, 1));
+    FBox Box = GetModelBounds();
+    if (Box.IsValid)
+    {
+        Position = Box.GetCenter();
+        FVector Size = Box.GetSize();
+        double R = FMath::Max3(Size.X, Size.Y, Size.Z);
+        Plane->SetWorldScale3D(FVector(R * 0.1, R * 0.1, 1));
+    }
 
     if (State == EState::DragMove)
     {
@@ -195,35 +213,18 @@ void AXSPCrossSectionActor::Tick(float DeltaTime)
     }
 }
 
-void AXSPCrossSectionActor::OnModelLoadFinish(int32 Type)
-{
-    if (Type == 0)
-    {
-        if (InitCrossSectionParams())
-        {
-            SetActorLocationAndRotation(Position, Rotator);
-            ApplyCrossSectionParams();
-        }
-    }
-}
-
-bool AXSPCrossSectionActor::InitCrossSectionParams()
-{
-    if (ModelActor.IsValid())
-    {
-        ModelActorBox = ModelActor->GetNodeBoundingBox(0);
-        if (ModelActorBox.IsValid)
-        {
-            Position = FVector(ModelActorBox.GetCenter());
-            return true;
-        }
-    }
-    return false;
-}
-
 void AXSPCrossSectionActor::ApplyCrossSectionParams()
 {
-    ModelActor->SetCrossSection(true, Position, -GetActorUpVector());
+    TArray<AActor*> ModelActors; 
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AXSPModelActor::StaticClass(), ModelActors);
+    for (AActor* Actor : ModelActors)
+    {
+        if (Actor->IsPendingKill())
+            continue;
+
+        AXSPModelActor* ModelActor = Cast<AXSPModelActor>(Actor);
+        ModelActor->SetCrossSection(true, Position, -GetActorUpVector());
+    }
 }
 
 float AXSPCrossSectionActor::GetScreenSpaceConstantScaleFactor(float InFactor)
@@ -249,17 +250,6 @@ float AXSPCrossSectionActor::GetScreenSpaceConstantScaleFactor(float InFactor)
     return OutScaleFactor;
 }
 
-FVector2D AXSPCrossSectionActor::GetPlaneScale(float InFactor)
-{
-    double PlaneRadius = Plane->GetStaticMesh()->GetBounds().SphereRadius;
-
-    //根据ModelActorBox与切面Position和Rotator计算合适的缩放
-    double BoxRadius = ModelActorBox.GetExtent().Length();
-    double Scale = BoxRadius / PlaneRadius;
-
-    return FVector2D(InFactor* Scale, InFactor* Scale);
-}
-
 FVector AXSPCrossSectionActor::GetMouseIntersectionPositionOnTranslatePlane()
 {
     APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -283,6 +273,9 @@ FVector AXSPCrossSectionActor::GetMouseIntersectionPositionOnTranslatePlane()
 
 void AXSPCrossSectionActor::HandleLeftMouseButtonPressed()
 {
+    if (!bEnable)
+        return;
+
     if (State == EState::DragMove)
     {
         APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -292,4 +285,23 @@ void AXSPCrossSectionActor::HandleLeftMouseButtonPressed()
     }
 
     //GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("AXSPCrossSectionActor::HandleLeftMouseButtonPressed"));
+}
+
+FBox AXSPCrossSectionActor::GetModelBounds()
+{
+    FBox Bounds = FBox(ForceInit);
+
+    TArray<AActor*> ModelActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AXSPModelActor::StaticClass(), ModelActors);
+    for (AActor* Actor : ModelActors)
+    {
+        if (Actor->IsPendingKill())
+            continue;
+        FVector Origin, Extent;
+        Actor->GetActorBounds(false, Origin, Extent, true);
+        FBox Box = FBox::BuildAABB(Origin, Extent);
+        Bounds += Box;
+    }
+
+    return Bounds;
 }

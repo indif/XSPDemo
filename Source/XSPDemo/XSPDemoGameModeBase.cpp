@@ -81,11 +81,6 @@ void AXSPDemoGameModeBase::Load()
 
 void AXSPDemoGameModeBase::Unload()
 {
-    if (CrossSectionActor)
-    {
-        CrossSectionActor->SetModelActor(nullptr);
-    }
-
     if (CombinedMeshActor)
     {
         GetWorld()->DestroyActor(CombinedMeshActor);
@@ -103,8 +98,11 @@ void AXSPDemoGameModeBase::EnableCorssSection()
 
     if (CombinedMeshActor)
     {
-        CrossSectionActor->SetDirection(AXSPCrossSectionActor::EDir::DirZ);
-        CrossSectionActor->SetModelActor(Cast<AXSPModelActor>(CombinedMeshActor));
+        static TArray<FString> Dirs = {TEXT("x"),TEXT("y"),TEXT("z")};
+        static int32 DirIndex = 0;
+        CrossSectionActor->SetDir(Dirs[DirIndex]);
+        DirIndex = (DirIndex + 1) % 3;
+        CrossSectionActor->SetEnable(true);
     }    
 }
 
@@ -112,6 +110,6 @@ void AXSPDemoGameModeBase::DisableCorssSection()
 {
     if (CrossSectionActor)
     {
-        CrossSectionActor->SetModelActor(nullptr);
+        CrossSectionActor->SetEnable(false);
     }
 }
